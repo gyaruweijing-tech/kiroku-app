@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7b6cff"/>
+      <stop offset="1" stop-color="#4a36d4"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- 重なったカード（プロジェクト） -->
+  <rect x="150" y="120" width="212" height="150" rx="22" fill="#ffffff" opacity="0.35"/>
+  <rect x="130" y="180" width="252" height="186" rx="26" fill="#ffffff"/>
+  <!-- 行 -->
+  <rect x="166" y="222" width="150" height="16" rx="8" fill="#cfc8ff"/>
+  <rect x="166" y="258" width="184" height="16" rx="8" fill="#e3dfff"/>
+  <!-- チェック -->
+  <circle cx="316" cy="320" r="34" fill="#4a36d4"/>
+  <path d="M300 320 l12 13 l22 -26" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
