@@ -33,6 +33,11 @@ function migrate(raw: any): Project | null {
       files: raw.files as MdFile[],
       createdAt: created,
       updatedAt: t,
+      ...(typeof raw.deletedAt === 'number' ? { deletedAt: raw.deletedAt } : {}),
+      ...(raw.focused ? { focused: true } : {}),
+      ...(typeof raw.nextAction === 'string'
+        ? { nextAction: raw.nextAction }
+        : {}),
     };
   }
 

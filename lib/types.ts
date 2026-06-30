@@ -12,6 +12,7 @@ export interface MdFile {
   body: string; // Markdown 本文
   createdAt: number;
   updatedAt: number;
+  deletedAt?: number; // ゴミ箱に入れた時刻。未設定＝通常表示
 }
 
 // プロジェクト＝フォルダ。中に MdFile を複数持てる。
@@ -22,4 +23,7 @@ export interface Project {
   files: MdFile[];
   createdAt: number;
   updatedAt: number;
+  deletedAt?: number; // ゴミ箱に入れた時刻。未設定＝通常表示
+  focused?: boolean; // いま注力（迷ったらこれ）。常に1つだけ true になる想定
+  nextAction?: string; // 次の一手（次にやること1行）
 }

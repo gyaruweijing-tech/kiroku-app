@@ -85,6 +85,46 @@ button {
   filter: brightness(1.1);
 }
 
+/* ===== 絞り込み・並び替え ===== */
+.filters {
+  padding: 0 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.filter-chip {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.filter-chip:hover {
+  border-color: var(--accent);
+}
+.filter-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.sort-select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .list {
   list-style: none;
   margin: 0;
@@ -110,11 +150,42 @@ button {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+.card.focused {
+  border-color: #e8b923;
+  background: #fffaf0;
+  box-shadow: 0 1px 3px rgba(232, 185, 35, 0.25);
+}
+.card.focused.active {
+  border-color: #e8b923;
+  background: #fff6e0;
+}
+.focus-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9a7a00;
+  background: #fdeec2;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
 .card-title {
   font-size: 15px;
   font-weight: 600;
   margin: 0 0 8px;
   line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-next {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0 0 8px;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -137,6 +208,27 @@ button {
 .card-date {
   font-size: 11px;
   color: var(--muted);
+}
+
+.trash-btn {
+  margin: 0 14px 14px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.trash-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.trash-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 /* ===== メイン ===== */
@@ -165,6 +257,27 @@ button {
   padding: 7px 12px;
   font-size: 14px;
   font-weight: 600;
+}
+.focus-btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.focus-btn:hover {
+  border-color: #e8b923;
+  color: var(--text);
+}
+.focus-btn.on {
+  background: #fdeec2;
+  border-color: #e8b923;
+  color: #9a7a00;
 }
 .title-input {
   flex: 1;
@@ -208,6 +321,37 @@ button {
 .icon-btn.danger:hover {
   background: #fdecec;
   border-color: #d64545;
+}
+
+/* ===== 次の一手バー ===== */
+.nextbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: #fffaf0;
+  border-bottom: 1px solid var(--border);
+}
+.nextbar-label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9a7a00;
+  white-space: nowrap;
+}
+.nextbar-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 8px 12px;
+  outline: none;
+}
+.nextbar-input:focus {
+  border-color: #e8b923;
 }
 
 /* ===== ファイルタブ（プロジェクト内の複数MD） ===== */
@@ -390,6 +534,62 @@ button {
   height: 100%;
   color: var(--muted);
   font-size: 15px;
+}
+
+/* ===== ゴミ箱パネル ===== */
+.trash-title {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.trash-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+.trash-section {
+  margin-bottom: 22px;
+}
+.trash-section h3 {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 8px;
+  letter-spacing: 0.05em;
+}
+.trash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+.trash-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.trash-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trash-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.trash-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 /* ===== スマホ ===== */
