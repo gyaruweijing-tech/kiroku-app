@@ -175,7 +175,7 @@ export default function Home() {
                 onClick={() => setShowDetail(false)}
                 aria-label="一覧へ戻る"
               >
-                ←
+                ← 一覧
               </button>
               <input
                 className="title-input"
@@ -197,16 +197,16 @@ export default function Home() {
                 ))}
               </select>
               <button className="icon-btn" onClick={exportSelected}>
-                ⬇ 書き出し
+                .mdで保存
               </button>
               <button className="icon-btn" onClick={() => fileRef.current?.click()}>
-                ⬆ 読み込み
+                .mdを開く
               </button>
               <button
                 className="icon-btn danger"
                 onClick={() => deleteProject(selected.id)}
               >
-                🗑
+                削除
               </button>
               <input
                 ref={fileRef}
