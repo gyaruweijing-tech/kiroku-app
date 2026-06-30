@@ -358,10 +358,25 @@ button {
 .filebar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 10px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--panel-2);
+}
+.filebar-fixed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+.filebar-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
 }
 .filetab {

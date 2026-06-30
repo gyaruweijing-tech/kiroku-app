@@ -488,37 +488,43 @@ export default function Home() {
               />
             </div>
 
-            {/* ファイルタブ（横スクロール） */}
+            {/* ファイルバー：左にボタン固定、ファイルタブだけ横スクロール */}
             <div className="filebar">
-              {activeFiles.map((f) => (
-                <button
-                  key={f.id}
-                  className={`filetab${f.id === selectedFileId ? ' active' : ''}`}
-                  onClick={() => {
-                    setSelectedFileId(f.id);
-                    setView('edit');
-                  }}
-                  title={f.name}
-                >
-                  📄 {f.name || '(無題)'}
+              <div className="filebar-fixed">
+                <button className="filetab add" onClick={createFile}>
+                  ＋ ファイル
                 </button>
-              ))}
-              <button className="filetab add" onClick={createFile}>
-                ＋ ファイル
-              </button>
-              <button
-                className="filetab add"
-                onClick={() => fileRef.current?.click()}
-              >
-                .mdを開く
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".md,text/markdown,text/plain"
-                style={{ display: 'none' }}
-                onChange={importFile}
-              />
+                <button
+                  className="filetab add"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  .mdを開く
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".md,text/markdown,text/plain"
+                  style={{ display: 'none' }}
+                  onChange={importFile}
+                />
+              </div>
+              <div className="filebar-scroll">
+                {activeFiles.map((f) => (
+                  <button
+                    key={f.id}
+                    className={`filetab${
+                      f.id === selectedFileId ? ' active' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedFileId(f.id);
+                      setView('edit');
+                    }}
+                    title={f.name}
+                  >
+                    📄 {f.name || '(無題)'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {selectedFile ? (
