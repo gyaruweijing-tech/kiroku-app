@@ -210,10 +210,70 @@ button {
   border-color: #d64545;
 }
 
+/* ===== ファイルタブ（プロジェクト内の複数MD） ===== */
+.filebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  overflow-x: auto;
+}
+.filetab {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.filetab:hover {
+  border-color: var(--accent);
+}
+.filetab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.filetab.add {
+  color: var(--accent);
+  border-style: dashed;
+}
+.filetab.add:hover {
+  background: var(--accent-soft);
+}
+
+.fileactions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px 0;
+  flex-wrap: wrap;
+}
+.filename-input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px 12px;
+  outline: none;
+}
+.filename-input:focus {
+  border-color: var(--accent);
+}
+
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 10px 18px 0;
 }
 .tab {
   border: none;

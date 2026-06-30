@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Project, Status, STATUSES } from '@/lib/types';
+import { MdFile, Project, Status, STATUSES } from '@/lib/types';
 import { loadProjects, saveProjects, newId, now } from '@/lib/storage';
 import { seedProjects } from '@/lib/seed';
 
@@ -24,6 +24,7 @@ function formatDate(ts: number): string {
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const [showDetail, setShowDetail] = useState(false); // スマホ用
   const [loaded, setLoaded] = useState(false);
@@ -36,6 +37,7 @@ export default function Home() {
     const data = existing && existing.length ? existing : seedProjects();
     setProjects(data);
     setSelectedId(data[0]?.id ?? null);
+    setSelectedFileId(data[0]?.files[0]?.id ?? null);
     setLoaded(true);
   }, []);
 
@@ -54,8 +56,13 @@ export default function Home() {
     () => projects.find((p) => p.id === selectedId) ?? null,
     [projects, selectedId]
   );
+  const selectedFile = useMemo(
+    () => selected?.files.find((f) => f.id === selectedFileId) ?? null,
+    [selected, selectedFileId]
+  );
 
-  function updateSelected(patch: Partial<Project>) {
+  // プロジェクト自体（タイトル・ステータス）を更新
+  function updateProject(patch: Partial<Pick<Project, 'title' | 'status'>>) {
     if (!selected) return;
     setProjects((prev) =>
       prev.map((p) =>
@@ -64,40 +71,120 @@ export default function Home() {
     );
   }
 
+  // 選択中ファイル（名前・本文）を更新。ファイルとプロジェクト両方の更新日時を進める
+  function updateFile(patch: Partial<Pick<MdFile, 'name' | 'body'>>) {
+    if (!selected || !selectedFile) return;
+    const t = now();
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id !== selected.id
+          ? p
+          : {
+              ...p,
+              updatedAt: t,
+              files: p.files.map((f) =>
+                f.id === selectedFile.id ? { ...f, ...patch, updatedAt: t } : f
+              ),
+            }
+      )
+    );
+  }
+
   function openProject(id: string) {
+    const proj = projects.find((p) => p.id === id);
     setSelectedId(id);
+    setSelectedFileId(proj?.files[0]?.id ?? null);
     setShowDetail(true);
     setView('edit');
   }
 
   function createProject() {
     const t = now();
+    const file: MdFile = {
+      id: newId(),
+      name: 'メモ',
+      body: '# メモ\n\nここに書く。\n',
+      createdAt: t,
+      updatedAt: t,
+    };
     const p: Project = {
       id: newId(),
       title: '新しいプロジェクト',
       status: '進行中',
-      body: '# 新しいプロジェクト\n\nここに進捗を書く。\n',
+      files: [file],
       createdAt: t,
       updatedAt: t,
     };
     setProjects((prev) => [p, ...prev]);
-    openProject(p.id);
+    setSelectedId(p.id);
+    setSelectedFileId(file.id);
+    setShowDetail(true);
+    setView('edit');
   }
 
   function deleteProject(id: string) {
-    if (!confirm('このプロジェクトを削除する？元に戻せないよ。')) return;
+    if (!confirm('このプロジェクトを丸ごと削除する？中のファイルも全部消えるよ。')) return;
     setProjects((prev) => {
       const next = prev.filter((p) => p.id !== id);
-      if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+      if (selectedId === id) {
+        setSelectedId(next[0]?.id ?? null);
+        setSelectedFileId(next[0]?.files[0]?.id ?? null);
+      }
       return next;
     });
     setShowDetail(false);
   }
 
-  function exportSelected() {
+  // 選択中プロジェクトにファイルを1つ追加
+  function createFile() {
     if (!selected) return;
-    const safe = selected.title.replace(/[\\/:*?"<>|]/g, '_').trim() || 'project';
-    const blob = new Blob([selected.body], { type: 'text/markdown' });
+    const t = now();
+    const n = selected.files.length + 1;
+    const file: MdFile = {
+      id: newId(),
+      name: `新しいファイル${n}`,
+      body: '',
+      createdAt: t,
+      updatedAt: t,
+    };
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === selected.id
+          ? { ...p, updatedAt: t, files: [...p.files, file] }
+          : p
+      )
+    );
+    setSelectedFileId(file.id);
+    setView('edit');
+  }
+
+  function deleteFile(fileId: string) {
+    if (!selected) return;
+    if (selected.files.length <= 1) {
+      alert('最後の1ファイルは消せないよ。プロジェクトごと削除してね。');
+      return;
+    }
+    if (!confirm('このファイルを削除する？元に戻せないよ。')) return;
+    const t = now();
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === selected.id
+          ? { ...p, updatedAt: t, files: p.files.filter((f) => f.id !== fileId) }
+          : p
+      )
+    );
+    if (selectedFileId === fileId) {
+      const rest = selected.files.filter((f) => f.id !== fileId);
+      setSelectedFileId(rest[0]?.id ?? null);
+    }
+  }
+
+  // 選択中ファイルを .md として書き出し
+  function exportFile() {
+    if (!selectedFile) return;
+    const safe =
+      selectedFile.name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'file';
+    const blob = new Blob([selectedFile.body], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -106,24 +193,31 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  // .md を読み込んで「選択中プロジェクトの新しいファイル」として追加
   function importFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !selected) return;
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? '');
-      const title = file.name.replace(/\.md$/i, '') || 'インポート';
+      const name = file.name.replace(/\.md$/i, '') || 'インポート';
       const t = now();
-      const p: Project = {
+      const md: MdFile = {
         id: newId(),
-        title,
-        status: '進行中',
+        name,
         body: text,
         createdAt: t,
         updatedAt: t,
       };
-      setProjects((prev) => [p, ...prev]);
-      openProject(p.id);
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === selected.id
+            ? { ...p, updatedAt: t, files: [...p.files, md] }
+            : p
+        )
+      );
+      setSelectedFileId(md.id);
+      setView('edit');
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -131,7 +225,7 @@ export default function Home() {
 
   return (
     <div className={`app${showDetail ? ' show-detail' : ''}`}>
-      {/* 左：一覧 */}
+      {/* 左：プロジェクト一覧 */}
       <aside className="sidebar">
         <div className="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,14 +252,16 @@ export default function Home() {
                 >
                   {p.status}
                 </span>
-                <span className="card-date">{formatDate(p.updatedAt)}</span>
+                <span className="card-date">
+                  {p.files.length}ファイル ・ {formatDate(p.updatedAt)}
+                </span>
               </div>
             </li>
           ))}
         </ul>
       </aside>
 
-      {/* 右：エディタ */}
+      {/* 右：プロジェクト詳細（ファイル群） */}
       <main className="main">
         {selected ? (
           <>
@@ -180,14 +276,14 @@ export default function Home() {
               <input
                 className="title-input"
                 value={selected.title}
-                onChange={(e) => updateSelected({ title: e.target.value })}
-                placeholder="タイトル"
+                onChange={(e) => updateProject({ title: e.target.value })}
+                placeholder="プロジェクト名"
               />
               <select
                 className="status-select"
                 value={selected.status}
                 onChange={(e) =>
-                  updateSelected({ status: e.target.value as Status })
+                  updateProject({ status: e.target.value as Status })
                 }
               >
                 {STATUSES.map((s) => (
@@ -196,17 +292,37 @@ export default function Home() {
                   </option>
                 ))}
               </select>
-              <button className="icon-btn" onClick={exportSelected}>
-                .mdで保存
-              </button>
-              <button className="icon-btn" onClick={() => fileRef.current?.click()}>
-                .mdを開く
-              </button>
               <button
                 className="icon-btn danger"
                 onClick={() => deleteProject(selected.id)}
               >
-                削除
+                プロジェクト削除
+              </button>
+            </div>
+
+            {/* ファイルタブ（横スクロール） */}
+            <div className="filebar">
+              {selected.files.map((f) => (
+                <button
+                  key={f.id}
+                  className={`filetab${f.id === selectedFileId ? ' active' : ''}`}
+                  onClick={() => {
+                    setSelectedFileId(f.id);
+                    setView('edit');
+                  }}
+                  title={f.name}
+                >
+                  📄 {f.name || '(無題)'}
+                </button>
+              ))}
+              <button className="filetab add" onClick={createFile}>
+                ＋ ファイル
+              </button>
+              <button
+                className="filetab add"
+                onClick={() => fileRef.current?.click()}
+              >
+                .mdを開く
               </button>
               <input
                 ref={fileRef}
@@ -217,39 +333,63 @@ export default function Home() {
               />
             </div>
 
-            <div className="tabs">
-              <button
-                className={`tab${view === 'edit' ? ' active' : ''}`}
-                onClick={() => setView('edit')}
-              >
-                編集
-              </button>
-              <button
-                className={`tab${view === 'preview' ? ' active' : ''}`}
-                onClick={() => setView('preview')}
-              >
-                プレビュー
-              </button>
-            </div>
-
-            <div className="content">
-              {view === 'edit' ? (
-                <textarea
-                  className="editor"
-                  value={selected.body}
-                  onChange={(e) => updateSelected({ body: e.target.value })}
-                  placeholder="Markdown で進捗を書く..."
-                  spellCheck={false}
-                />
-              ) : (
-                <div className="md">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {selected.body}
-                  </ReactMarkdown>
+            {selectedFile ? (
+              <>
+                {/* ファイル名 ＋ 編集/プレビュー ＋ 書き出し/削除 */}
+                <div className="fileactions">
+                  <input
+                    className="filename-input"
+                    value={selectedFile.name}
+                    onChange={(e) => updateFile({ name: e.target.value })}
+                    placeholder="ファイル名"
+                  />
+                  <div className="tabs">
+                    <button
+                      className={`tab${view === 'edit' ? ' active' : ''}`}
+                      onClick={() => setView('edit')}
+                    >
+                      編集
+                    </button>
+                    <button
+                      className={`tab${view === 'preview' ? ' active' : ''}`}
+                      onClick={() => setView('preview')}
+                    >
+                      プレビュー
+                    </button>
+                  </div>
+                  <button className="icon-btn" onClick={exportFile}>
+                    .mdで保存
+                  </button>
+                  <button
+                    className="icon-btn danger"
+                    onClick={() => deleteFile(selectedFile.id)}
+                  >
+                    ファイル削除
+                  </button>
                 </div>
-              )}
-            </div>
-            <div className="saved">{savedLabel}</div>
+
+                <div className="content">
+                  {view === 'edit' ? (
+                    <textarea
+                      className="editor"
+                      value={selectedFile.body}
+                      onChange={(e) => updateFile({ body: e.target.value })}
+                      placeholder="Markdown で書く..."
+                      spellCheck={false}
+                    />
+                  ) : (
+                    <div className="md">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {selectedFile.body}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+                <div className="saved">{savedLabel}</div>
+              </>
+            ) : (
+              <div className="empty">「＋ ファイル」でファイルを追加しよう</div>
+            )}
           </>
         ) : (
           <div className="empty">

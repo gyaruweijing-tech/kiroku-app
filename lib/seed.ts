@@ -14,7 +14,13 @@ export function seedProjects(): Project[] {
       status: '進行中',
       createdAt: t,
       updatedAt: t,
-      body: `# 🎙️ 俺専用ポッドキャスト自動生成システム
+      files: [
+        {
+          id: newId(),
+          name: '進捗メモ',
+          createdAt: t,
+          updatedAt: t,
+          body: `# 🎙️ 俺専用ポッドキャスト自動生成システム
 
 ちょっとした疑問（例「鯖の効果」）を、手作業のリサーチなしで
 3分（約1000字）の聞き流しポッドキャスト音声として全自動生成する仕組み。
@@ -54,6 +60,8 @@ export function seedProjects(): Project[] {
 - GASは6分の実行時間制限あり。バッチ時は5分で打ち切り→次回再実行する作りにした。
 - 📄 改善版GASコード全文は \`（手元のフォルダ）` に保存済み。
 `,
+        },
+      ],
     },
     {
       id: newId(),
@@ -61,7 +69,13 @@ export function seedProjects(): Project[] {
       status: '進行中',
       createdAt: t - 1,
       updatedAt: t - 1,
-      body: `# 📒 Kiroku（記録）
+      files: [
+        {
+          id: newId(),
+          name: '使い方メモ',
+          createdAt: t - 1,
+          updatedAt: t - 1,
+          body: `# 📒 Kiroku（記録）
 
 酔ってても進捗だけは残せる、超シンプルな進捗・プロジェクト管理アプリ。
 
@@ -86,6 +100,8 @@ export function seedProjects(): Project[] {
 設計の急所：UI は lib/storage.ts の4関数(load/save/newId/now)にしか依存していない。
 保存先を替えても画面コードは触らなくていい。
 `,
+        },
+      ],
     },
   ];
 }

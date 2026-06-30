@@ -5,11 +5,21 @@ export type Status = '進行中' | '保留' | '完了';
 
 export const STATUSES: Status[] = ['進行中', '保留', '完了'];
 
+// 1つの Markdown ファイル。プロジェクト（フォルダ）の中に何個でも入る。
+export interface MdFile {
+  id: string;
+  name: string; // ファイル名（拡張子 .md は付けない）
+  body: string; // Markdown 本文
+  createdAt: number;
+  updatedAt: number;
+}
+
+// プロジェクト＝フォルダ。中に MdFile を複数持てる。
 export interface Project {
   id: string;
   title: string;
   status: Status;
-  body: string; // Markdown 本文（= あなたの「MDファイル」の中身）
+  files: MdFile[];
   createdAt: number;
   updatedAt: number;
 }
