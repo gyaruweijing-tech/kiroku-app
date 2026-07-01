@@ -64,13 +64,40 @@ Vercel + スマホ（PWA）対応を見据えた構成。
   → 保存先を localStorage から API/DB に替えても、`storage.ts` の中身だけ直せばよい。
 - データの形は `lib/types.ts` に集約（= 契約）。
 
-## 🔜 改良メモ（明日以降）
-- [ ] `npm install` → `npm run dev` で起動確認（初回）
-- [ ] Vercel へデプロイ → スマホのホーム画面に追加
-- [ ] 端末間同期したくなったら storage を DB/API 実装に差し替え
+## ✅ 改良（2026-07-01）GitHubをDB代わりにした端末間同期＋Basic認証
+狙い：スマホで保存した内容をPC側（＝Claude Codeがこのリポジトリを見る）でも見れるようにする。案A（リポジトリ内Markdown/JSONで橋渡し）を採用。
+
+- [x] `middleware.ts` — アプリ全体（画面＋API）をBasic認証で保護。
+  `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` が未設定なら素通り（ローカル開発は今まで通り無認証で動く）
+- [x] `app/api/sync/route.ts` — GitHub Contents APIを叩くサーバー専用の窓口
+  - GET: リポジトリの `data/kiroku-data.json` を読んで返す
+  - POST: 受け取ったprojectsをその場所にコミット（sha付きで上書き、無ければ新規作成）
+  - `GITHUB_TOKEN`等が未設定なら501を返すだけ（今まで通りlocalStorageのみで動く）
+  - トークンはサーバー側の環境変数のみで扱う（フロントには一切渡さない）
+- [x] `lib/storage.ts` に `pullRemote()` / `pushRemote()` を追加（4関数の設計は維持、追加のみ）
+- [x] `app/page.tsx`：初回ロード時にlocalStorageとリモートの`updatedAt`を比較して新しい方を採用。
+  編集は3秒操作が止まってからGitHubへ自動push（キーストロークごとの大量コミットを防止）
+- [x] `.env.example` を追加（実際の値は `.env.local` へ、gitignore済み）
+- [x] ローカル動作確認：環境変数なしで `npm run dev` → トップページ200、`/api/sync` はGET/POSTとも501（設計通り無害にno-op）、middlewareも認証なしで素通り
+
+### 🔜 これをちゃんと使うために必要な手動セットアップ（Claude Codeにはできない部分）
+- [x] GitHubでFine-grained PAT発行（対象リポジトリを`kiroku`だけに絞り、Permissions: Contents = Read and write）
+- [x] このリポジトリをVercelにデプロイ
+- [x] Vercelの環境変数に`GITHUB_TOKEN`等を設定済み
+- [ ] **未確認**：`<VercelのURL>/api/sync` にアクセスして、`{"projects": ...}`が返るか確認
+  （`{"error":"sync未設定"}`＝501 が出たら、env変数追加後に「Redeploy」してない可能性が高い）
+  → 2026-07-01夜、確認しようとしたが本人が飲酒中のため保留。しらふの時に確認する。
+- [ ] スマホ・PC両方で一度だけBasic認証のID/PWを入力（以降ブラウザが覚える）
+- [ ] 同期が確認できたら、リポジトリに `data/kiroku-data.json` ができているはず
+  → その中身を見ながら、既存のプロジェクト（ポッドキャスト進捗など）を消さない形で
+    「kiroku」という自己言及プロジェクトを追加し、次の一手を「使い方を確かめる」にする
+    （＝Claude Codeがこのタスクを代行するのはここまで待ってから。それまでは本人がアプリ内で
+    「＋新規プロジェクト」から手動で追加するのが一番安全＆手っ取り早い）
+
+## 🔜 改良メモ（その後）
 - [ ] PWA用 PNG アイコン（192/512）を用意（今は SVG 1枚。iOS の home追加で要る場合あり）
-- [ ] 検索 / タグ / 並び替え
-- [ ] 自動保存の最適化（今は変更ごとに保存）
+- [ ] 検索 / タグ / 並び替え（並び替えは実装済み、検索/タグは未）
+- [ ] 自動保存の最適化（localStorageは変更ごと、GitHub pushは3秒デバウンス済み）
 
 ## 🤖 将来構想：Claude Code が Kiroku を自律的に更新する
 狙い：進捗の記録・整理を Claude Code に任せる。

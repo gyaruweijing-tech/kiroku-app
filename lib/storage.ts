@@ -19,7 +19,7 @@ export function now(): number {
 
 // 旧形式（1プロジェクト = body 1枚）を、新形式（files 配列）へ自動変換。
 // これにより、既にスマホ等に保存済みの記録もそのまま引き継がれる。
-function migrate(raw: any): Project | null {
+export function migrate(raw: any): Project | null {
   if (!raw || typeof raw !== 'object') return null;
   const t = typeof raw.updatedAt === 'number' ? raw.updatedAt : now();
   const created = typeof raw.createdAt === 'number' ? raw.createdAt : t;
@@ -75,4 +75,36 @@ export function loadProjects(): Project[] | null {
 export function saveProjects(projects: Project[]): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(KEY, JSON.stringify(projects));
+}
+
+// ============================================================
+//  リモート同期（GitHubをDB代わりに使う /api/sync 経由）
+//  未設定（サーバー側に GITHUB_TOKEN 等が無い）環境では
+//  /api/sync が 501 を返すので、その場合は黙って諦める
+//  （= 今まで通り localStorage だけで動く）。
+// ============================================================
+
+export async function pullRemote(): Promise<Project[] | null> {
+  try {
+    const res = await fetch('/api/sync', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data.projects)) return null;
+    return data.projects.map(migrate).filter((p: Project | null): p is Project => p !== null);
+  } catch {
+    return null;
+  }
+}
+
+export async function pushRemote(projects: Project[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projects }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

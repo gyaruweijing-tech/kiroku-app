@@ -4,7 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MdFile, Project, Status, STATUSES } from '@/lib/types';
-import { loadProjects, saveProjects, newId, now } from '@/lib/storage';
+import {
+  loadProjects,
+  saveProjects,
+  pullRemote,
+  pushRemote,
+  newId,
+  now,
+} from '@/lib/storage';
 import { seedProjects } from '@/lib/seed';
 
 const STATUS_COLORS: Record<Status, string> = {
@@ -35,25 +42,63 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [savedLabel, setSavedLabel] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextPush = useRef(false);
 
-  // 初回ロード（無ければ seed）
+  // 初回ロード：localStorageとGitHub(リモート)の両方を見て、
+  // 更新日時が新しい方を採用する（無ければ seed）。
   useEffect(() => {
-    const existing = loadProjects();
-    const data = existing && existing.length ? existing : seedProjects();
-    setProjects(data);
-    const firstProj = data.find((p) => !p.deletedAt) ?? null;
-    setSelectedId(firstProj?.id ?? null);
-    setSelectedFileId(
-      firstProj?.files.find((f) => !f.deletedAt)?.id ?? null
-    );
-    setLoaded(true);
+    let cancelled = false;
+    (async () => {
+      const local = loadProjects();
+      const remote = await pullRemote();
+      const maxUpdated = (list: Project[] | null) =>
+        list && list.length ? Math.max(...list.map((p) => p.updatedAt)) : -1;
+      let data: Project[];
+      if (maxUpdated(remote) >= maxUpdated(local) && remote && remote.length) {
+        data = remote;
+      } else if (local && local.length) {
+        data = local;
+      } else {
+        data = seedProjects();
+      }
+      if (cancelled) return;
+      // 採用したデータをそのまま再push（＝差分の見送り）しないよう、次の自動保存では
+      // ローカル保存のみ行い、GitHubへのpushは実際の編集が起きてから行う。
+      skipNextPush.current = true;
+      setProjects(data);
+      const firstProj = data.find((p) => !p.deletedAt) ?? null;
+      setSelectedId(firstProj?.id ?? null);
+      setSelectedFileId(
+        firstProj?.files.find((f) => !f.deletedAt)?.id ?? null
+      );
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // 自動保存
+  // 自動保存：localStorageには即保存、GitHubへは編集が3秒落ち着いてから同期
   useEffect(() => {
     if (!loaded) return;
     saveProjects(projects);
     setSavedLabel(`保存済み ${formatDate(Date.now())}`);
+
+    if (skipNextPush.current) {
+      skipNextPush.current = false;
+      return;
+    }
+    if (pushTimer.current) clearTimeout(pushTimer.current);
+    pushTimer.current = setTimeout(() => {
+      pushRemote(projects).then((ok) => {
+        setSavedLabel(
+          ok
+            ? `保存済み ${formatDate(Date.now())}（GitHubに同期済み）`
+            : `保存済み ${formatDate(Date.now())}（GitHub同期は未設定/失敗）`
+        );
+      });
+    }, 3000);
   }, [projects, loaded]);
 
   // 通常表示（ゴミ箱以外）。絞り込み→並び替え。注力中は常に最上部
