@@ -11,9 +11,12 @@ const API = 'https://api.github.com';
 
 function config() {
   const token = process.env.GITHUB_TOKEN;
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  if (!token || !owner || !repo) return null;
+  // owner/repo は秘密ではない固定値。envで上書きもできるが、
+  // 未設定でも既定値で動くようにして「設定漏れで同期できない」事故を防ぐ。
+  // （＝実質必要な設定は GITHUB_TOKEN だけ）
+  const owner = process.env.GITHUB_OWNER || 'gyaruweijing-tech';
+  const repo = process.env.GITHUB_REPO || 'kiroku';
+  if (!token) return null;
   return {
     token,
     owner,
@@ -70,8 +73,9 @@ async function readFile(cfg: NonNullable<ReturnType<typeof config>>) {
 async function runCheck() {
   const env = {
     GITHUB_TOKEN: !!process.env.GITHUB_TOKEN,
-    GITHUB_OWNER: !!process.env.GITHUB_OWNER,
-    GITHUB_REPO: !!process.env.GITHUB_REPO,
+    // owner/repo は未設定でも既定値で動く（＝falseでも問題ない）
+    GITHUB_OWNER: process.env.GITHUB_OWNER ? 'set' : '既定値を使用',
+    GITHUB_REPO: process.env.GITHUB_REPO ? 'set' : '既定値を使用',
     BASIC_AUTH_USER: !!process.env.BASIC_AUTH_USER,
     BASIC_AUTH_PASS: !!process.env.BASIC_AUTH_PASS,
   };
@@ -80,7 +84,7 @@ async function runCheck() {
     return {
       ok: false,
       env,
-      diagnosis: 'GITHUB_TOKEN / GITHUB_OWNER / GITHUB_REPO のどれかが未設定（上のenv欄でfalseのもの）',
+      diagnosis: 'GITHUB_TOKEN が未設定。VercelのenvにGITHUB_TOKENを設定して再デプロイ',
     };
   }
 
