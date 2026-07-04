@@ -231,6 +231,38 @@ button {
   color: var(--text);
 }
 
+/* ===== 同期（サイドバー下部） ===== */
+.sync-area {
+  margin: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sync-btn {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.sync-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.sync-btn:disabled {
+  opacity: 0.6;
+}
+.sync-msg {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  word-break: break-all;
+}
+
 /* ===== メイン ===== */
 .main {
   display: flex;

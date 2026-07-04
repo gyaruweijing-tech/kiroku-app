@@ -96,15 +96,61 @@ export async function pullRemote(): Promise<Project[] | null> {
   }
 }
 
-export async function pushRemote(projects: Project[]): Promise<boolean> {
+// 成功なら null、失敗なら理由の文字列を返す（画面にそのまま表示できる形）
+export async function pushRemote(projects: Project[]): Promise<string | null> {
   try {
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projects }),
     });
-    return res.ok;
+    if (res.ok) return null;
+    if (res.status === 501) return '同期は未設定（ローカルのみ保存）';
+    const data = await res.json().catch(() => null);
+    return data?.error ?? `同期失敗（HTTP ${res.status}）`;
   } catch {
-    return false;
+    return '同期失敗（ネットワークエラー）';
   }
+}
+
+// ============================================================
+//  マージ：ローカルとリモートを「消さない方向」で統合する。
+//  - 同じidのプロジェクト → updatedAt が新しい方を採用
+//  - 片方にしか無いプロジェクト → 必ず残す（＝端末のデータが消えない）
+//  - 例外：初期データ(seed)は端末ごとに別idで作られるため、
+//    「同名かつ一度も編集されていない」重複だけは新しい方1つに間引く
+// ============================================================
+
+function isPristineSeed(p: Project): boolean {
+  // seedは createdAt === updatedAt で生まれ、編集すると updatedAt が進む
+  return p.updatedAt - p.createdAt <= 1;
+}
+
+export function mergeProjects(
+  local: Project[] | null,
+  remote: Project[] | null
+): Project[] {
+  const a = local ?? [];
+  const b = remote ?? [];
+  if (!a.length) return b;
+  if (!b.length) return a;
+
+  const byId = new Map<string, Project>();
+  for (const p of [...b, ...a]) {
+    const prev = byId.get(p.id);
+    if (!prev || p.updatedAt >= prev.updatedAt) byId.set(p.id, p);
+  }
+
+  // 未編集seedの同名重複を間引く（編集済みのものは絶対に消さない）
+  const merged = Array.from(byId.values());
+  const keep = merged.filter((p) => {
+    if (!isPristineSeed(p)) return true;
+    const twin = merged.find((q) => q.id !== p.id && q.title === p.title);
+    if (!twin) return true;
+    // 相方が編集済みならこちら(未編集)を落とす。両方未編集なら新しい方だけ残す
+    if (!isPristineSeed(twin)) return false;
+    return p.updatedAt > twin.updatedAt || (p.updatedAt === twin.updatedAt && p.id > twin.id);
+  });
+
+  return keep.sort((x, y) => y.updatedAt - x.updatedAt);
 }

@@ -9,6 +9,7 @@ import {
   saveProjects,
   pullRemote,
   pushRemote,
+  mergeProjects,
   newId,
   now,
 } from '@/lib/storage';
@@ -41,31 +42,29 @@ export default function Home() {
   );
   const [loaded, setLoaded] = useState(false);
   const [savedLabel, setSavedLabel] = useState('');
+  const [syncMsg, setSyncMsg] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextPush = useRef(false);
 
-  // 初回ロード：localStorageとGitHub(リモート)の両方を見て、
-  // 更新日時が新しい方を採用する（無ければ seed）。
+  // 初回ロード：localStorageとGitHub(リモート)を「消さない方向」でマージする。
+  // 同じidは新しい方、片方にしか無いものは必ず残す（＝端末のデータが消えない）。
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const local = loadProjects();
       const remote = await pullRemote();
-      const maxUpdated = (list: Project[] | null) =>
-        list && list.length ? Math.max(...list.map((p) => p.updatedAt)) : -1;
-      let data: Project[];
-      if (maxUpdated(remote) >= maxUpdated(local) && remote && remote.length) {
-        data = remote;
-      } else if (local && local.length) {
-        data = local;
-      } else {
-        data = seedProjects();
-      }
+      const data =
+        local?.length || remote?.length
+          ? mergeProjects(local, remote)
+          : seedProjects();
       if (cancelled) return;
-      // 採用したデータをそのまま再push（＝差分の見送り）しないよう、次の自動保存では
-      // ローカル保存のみ行い、GitHubへのpushは実際の編集が起きてから行う。
-      skipNextPush.current = true;
+      // リモートとマージ結果が同じなら再pushしない。違う（＝ローカルにしか無い
+      // 記録がある等）なら一度pushして端末間を揃える。
+      const needPush =
+        remote !== null && JSON.stringify(data) !== JSON.stringify(remote);
+      skipNextPush.current = !needPush;
       setProjects(data);
       const firstProj = data.find((p) => !p.deletedAt) ?? null;
       setSelectedId(firstProj?.id ?? null);
@@ -91,15 +90,36 @@ export default function Home() {
     }
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(() => {
-      pushRemote(projects).then((ok) => {
-        setSavedLabel(
-          ok
-            ? `保存済み ${formatDate(Date.now())}（GitHubに同期済み）`
-            : `保存済み ${formatDate(Date.now())}（GitHub同期は未設定/失敗）`
+      pushRemote(projects).then((err) => {
+        setSyncMsg(
+          err
+            ? `⚠ ${err}`
+            : `☁ GitHubに同期済み ${formatDate(Date.now())}`
         );
       });
     }, 3000);
   }, [projects, loaded]);
+
+  // 手動同期：リモートを取得→マージ→pushして、結果（失敗理由も）を表示する
+  async function syncNow() {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncMsg('同期中…');
+    try {
+      const remote = await pullRemote();
+      const merged = mergeProjects(projects, remote);
+      const err = await pushRemote(merged);
+      if (JSON.stringify(merged) !== JSON.stringify(projects)) {
+        skipNextPush.current = true; // 直後の自動保存で二重pushしない
+        setProjects(merged);
+      }
+      setSyncMsg(
+        err ? `⚠ ${err}` : `☁ GitHubに同期済み ${formatDate(Date.now())}`
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // 通常表示（ゴミ箱以外）。絞り込み→並び替え。注力中は常に最上部
   const sorted = useMemo(() => {
@@ -458,6 +478,12 @@ export default function Home() {
         >
           🗑 ゴミ箱{trashCount > 0 ? `（${trashCount}）` : ''}
         </button>
+        <div className="sync-area">
+          <button className="sync-btn" onClick={syncNow} disabled={syncing}>
+            {syncing ? '同期中…' : '☁ 今すぐ同期'}
+          </button>
+          {syncMsg && <p className="sync-msg">{syncMsg}</p>}
+        </div>
       </aside>
 
       {/* 右：ゴミ箱 or プロジェクト詳細 */}
@@ -625,7 +651,10 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <div className="saved">{savedLabel}</div>
+                <div className="saved">
+                  {savedLabel}
+                  {syncMsg ? ` ／ ${syncMsg}` : ''}
+                </div>
               </>
             ) : (
               <div className="empty">「＋ ファイル」でファイルを追加しよう</div>
