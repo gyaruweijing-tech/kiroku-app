@@ -12,6 +12,8 @@ export function seedProjects(): Project[] {
       id: newId(),
       title: '🎙️ 俺専用ポッドキャスト自動生成システム',
       status: '進行中',
+      goal: '手作業ゼロで、聞き流せる知識を毎朝自分に届ける',
+      origin: 'リサーチが面倒で学びが続かなかった。仕組みで解決したい',
       createdAt: t,
       updatedAt: t,
       files: [
@@ -67,6 +69,8 @@ export function seedProjects(): Project[] {
       id: newId(),
       title: '📒 このアプリ（Kiroku）について',
       status: '進行中',
+      goal: '酔ってても進捗だけは残る場所をつくる',
+      origin: '記録が続かない自分でも、雑に書ける道具が欲しかった',
       createdAt: t - 1,
       updatedAt: t - 1,
       files: [

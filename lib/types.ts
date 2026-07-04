@@ -26,4 +26,6 @@ export interface Project {
   deletedAt?: number; // ゴミ箱に入れた時刻。未設定＝通常表示
   focused?: boolean; // いま注力（迷ったらこれ）。常に1つだけ true になる想定
   nextAction?: string; // 次の一手（次にやること1行）
+  goal?: string; // 北極星＝このプロジェクトの一言ゴール（モチベの方向）
+  origin?: string; // 原点＝なぜ始めたか（折れた時に効く物語）
 }

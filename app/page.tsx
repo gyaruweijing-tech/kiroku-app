@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MdFile, Project, Status, STATUSES } from '@/lib/types';
@@ -14,6 +20,25 @@ import {
   now,
 } from '@/lib/storage';
 import { seedProjects } from '@/lib/seed';
+import {
+  IconArrowLeft,
+  IconChevronDown,
+  IconCloud,
+  IconClose,
+  IconDots,
+  IconDownload,
+  IconEdit,
+  IconEye,
+  IconFile,
+  IconFilePlus,
+  IconFolder,
+  IconPlus,
+  IconRestore,
+  IconSprout,
+  IconStar,
+  IconTarget,
+  IconTrash,
+} from './icons';
 
 const STATUS_COLORS: Record<Status, string> = {
   進行中: '#6d5dfc',
@@ -29,11 +54,60 @@ function formatDate(ts: number): string {
   )}:${p(d.getMinutes())}`;
 }
 
+// ===== 「…」ドロップダウンメニュー（外側クリック/Escで閉じる） =====
+function Menu({
+  trigger,
+  children,
+  label = 'メニュー',
+}: {
+  trigger: ReactNode;
+  children: ReactNode;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+  return (
+    <div className="menu" ref={ref}>
+      <button
+        className="menu-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+      >
+        {trigger}
+      </button>
+      {open && (
+        <div className="menu-pop" role="menu" onClick={() => setOpen(false)}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [view, setView] = useState<'edit' | 'preview'>('edit');
+  const [view, setView] = useState<'edit' | 'preview'>('preview'); // 読む→書くの順。既定はプレビュー
+  const [fileListOpen, setFileListOpen] = useState(false); // ファイルの折りたたみ縦リスト
   const [showDetail, setShowDetail] = useState(false); // スマホ用
   const [showTrash, setShowTrash] = useState(false); // ゴミ箱画面
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
@@ -92,9 +166,7 @@ export default function Home() {
     pushTimer.current = setTimeout(() => {
       pushRemote(projects).then((err) => {
         setSyncMsg(
-          err
-            ? `⚠ ${err}`
-            : `☁ GitHubに同期済み ${formatDate(Date.now())}`
+          err ? err : `GitHubに同期済み ${formatDate(Date.now())}`
         );
       });
     }, 3000);
@@ -113,9 +185,7 @@ export default function Home() {
         skipNextPush.current = true; // 直後の自動保存で二重pushしない
         setProjects(merged);
       }
-      setSyncMsg(
-        err ? `⚠ ${err}` : `☁ GitHubに同期済み ${formatDate(Date.now())}`
-      );
+      setSyncMsg(err ? err : `GitHubに同期済み ${formatDate(Date.now())}`);
     } finally {
       setSyncing(false);
     }
@@ -172,9 +242,11 @@ export default function Home() {
   }, [projects]);
   const trashCount = trashedProjects.length + trashedFiles.length;
 
-  // プロジェクト自体（タイトル・ステータス・次の一手）を更新
+  // プロジェクト自体（タイトル・ステータス・次の一手・目標）を更新
   function updateProject(
-    patch: Partial<Pick<Project, 'title' | 'status' | 'nextAction'>>
+    patch: Partial<
+      Pick<Project, 'title' | 'status' | 'nextAction' | 'goal' | 'origin'>
+    >
   ) {
     if (!selected) return;
     setProjects((prev) =>
@@ -182,6 +254,13 @@ export default function Home() {
         p.id === selected.id ? { ...p, ...patch, updatedAt: now() } : p
       )
     );
+  }
+
+  // ステータスをタップで循環（進行中→保留→完了→進行中）。selectを廃止
+  function cycleStatus() {
+    if (!selected) return;
+    const i = STATUSES.indexOf(selected.status);
+    updateProject({ status: STATUSES[(i + 1) % STATUSES.length] });
   }
 
   // 「いま注力」を切り替え。常に1つだけ true（再度押すと解除）
@@ -224,7 +303,8 @@ export default function Home() {
     setSelectedFileId(proj?.files.find((f) => !f.deletedAt)?.id ?? null);
     setShowDetail(true);
     setShowTrash(false);
-    setView('edit');
+    setFileListOpen(false);
+    setView('preview'); // 開いたらまず読める
   }
 
   function createProject() {
@@ -249,7 +329,8 @@ export default function Home() {
     setSelectedFileId(file.id);
     setShowDetail(true);
     setShowTrash(false);
-    setView('edit');
+    setFileListOpen(false);
+    setView('edit'); // 新規は書き始めたいので編集から
   }
 
   // === ゴミ箱：ソフト削除 ===
@@ -353,6 +434,7 @@ export default function Home() {
       )
     );
     setSelectedFileId(file.id);
+    setFileListOpen(false);
     setView('edit');
   }
 
@@ -394,6 +476,7 @@ export default function Home() {
         )
       );
       setSelectedFileId(md.id);
+      setFileListOpen(false);
       setView('edit');
     };
     reader.readAsText(file);
@@ -412,7 +495,7 @@ export default function Home() {
           </h1>
         </div>
         <button className="new-btn" onClick={createProject}>
-          ＋ 新規プロジェクト
+          <IconPlus size={16} /> 新規プロジェクト
         </button>
         <div className="filters">
           <div className="filter-chips">
@@ -449,8 +532,14 @@ export default function Home() {
                 }${p.focused ? ' focused' : ''}`}
                 onClick={() => openProject(p.id)}
               >
-                {p.focused && <span className="focus-badge">⭐ いま注力</span>}
-                <p className="card-title">{p.title || '(無題)'}</p>
+                <p className="card-title">
+                  {p.focused && (
+                    <span className="focus-star" title="いま注力">
+                      <IconStar size={15} filled />
+                    </span>
+                  )}
+                  {p.title || '(無題)'}
+                </p>
                 {p.nextAction?.trim() && (
                   <p className="card-next">→ {p.nextAction}</p>
                 )}
@@ -476,11 +565,11 @@ export default function Home() {
             setShowDetail(true);
           }}
         >
-          🗑 ゴミ箱{trashCount > 0 ? `（${trashCount}）` : ''}
+          <IconTrash size={16} /> ゴミ箱{trashCount > 0 ? `（${trashCount}）` : ''}
         </button>
         <div className="sync-area">
           <button className="sync-btn" onClick={syncNow} disabled={syncing}>
-            {syncing ? '同期中…' : '☁ 今すぐ同期'}
+            <IconCloud size={16} /> {syncing ? '同期中…' : '今すぐ同期'}
           </button>
           {syncMsg && <p className="sync-msg">{syncMsg}</p>}
         </div>
@@ -507,18 +596,19 @@ export default function Home() {
                 onClick={() => setShowDetail(false)}
                 aria-label="一覧へ戻る"
               >
-                ← 一覧
+                <IconArrowLeft size={18} />
               </button>
               <button
                 className={`focus-btn${selected.focused ? ' on' : ''}`}
                 onClick={() => toggleFocus(selected.id)}
+                aria-pressed={selected.focused ?? false}
                 title={
                   selected.focused
                     ? '注力中（クリックで解除）'
                     : 'このプロジェクトを「いま注力」にする'
                 }
               >
-                {selected.focused ? '⭐ 注力中' : '☆ 注力にする'}
+                <IconStar size={20} filled={selected.focused} />
               </button>
               <input
                 className="title-input"
@@ -526,31 +616,55 @@ export default function Home() {
                 onChange={(e) => updateProject({ title: e.target.value })}
                 placeholder="プロジェクト名"
               />
-              <select
-                className="status-select"
-                value={selected.status}
-                onChange={(e) =>
-                  updateProject({ status: e.target.value as Status })
-                }
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
               <button
-                className="icon-btn danger"
-                onClick={() => trashProject(selected.id)}
-                title="プロジェクトをゴミ箱へ"
+                className="status-chip"
+                style={{ background: STATUS_COLORS[selected.status] }}
+                onClick={cycleStatus}
+                title="タップでステータスを切り替え"
               >
-                プロジェクト削除
+                {selected.status}
               </button>
+              <Menu trigger={<IconDots size={18} />} label="プロジェクトの操作">
+                <button
+                  className="menu-item danger"
+                  onClick={() => trashProject(selected.id)}
+                >
+                  <IconTrash size={16} /> プロジェクトを削除
+                </button>
+              </Menu>
+            </div>
+
+            {/* 目標：北極星（一言ゴール）＋原点（なぜ始めたか） */}
+            <div className="goalbar">
+              <label className="goal-field">
+                <span className="goal-label north">
+                  <IconStar size={14} /> 北極星
+                </span>
+                <input
+                  className="goal-input"
+                  value={selected.goal ?? ''}
+                  onChange={(e) => updateProject({ goal: e.target.value })}
+                  placeholder="一言ゴール（例：中島聡さんのようなメルマガを自分に届ける）"
+                />
+              </label>
+              <label className="goal-field">
+                <span className="goal-label origin">
+                  <IconSprout size={14} /> 原点
+                </span>
+                <input
+                  className="goal-input"
+                  value={selected.origin ?? ''}
+                  onChange={(e) => updateProject({ origin: e.target.value })}
+                  placeholder="なぜ始めた？（折れた時に効く物語）"
+                />
+              </label>
             </div>
 
             {/* 次の一手 */}
             <div className="nextbar">
-              <span className="nextbar-label">🎯 次の一手</span>
+              <span className="nextbar-label">
+                <IconTarget size={15} /> 次の一手
+              </span>
               <input
                 className="nextbar-input"
                 value={selected.nextAction ?? ''}
@@ -559,90 +673,126 @@ export default function Home() {
               />
             </div>
 
-            {/* ファイルバー：左にボタン固定、ファイルタブだけ横スクロール */}
-            <div className="filebar">
-              <div className="filebar-fixed">
-                <button className="filetab add" onClick={createFile}>
-                  ＋ ファイル
-                </button>
-                <button
-                  className="filetab add"
-                  onClick={() => fileRef.current?.click()}
+            {/* ファイル選択：普段は選択中の1つ＋「…」だけ。▼で全ファイルを縦に開く */}
+            <div className="fileselect">
+              <button
+                className="fileselect-head"
+                onClick={() => setFileListOpen((o) => !o)}
+                aria-expanded={fileListOpen}
+              >
+                <IconFile size={16} />
+                <span className="fileselect-name">
+                  {selectedFile?.name || 'ファイルを選ぶ'}
+                </span>
+                <span className="fileselect-count">{activeFiles.length}</span>
+                <span
+                  className={`fileselect-caret${fileListOpen ? ' open' : ''}`}
                 >
-                  .mdを開く
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".md,text/markdown,text/plain"
-                  style={{ display: 'none' }}
-                  onChange={importFile}
-                />
+                  <IconChevronDown size={16} />
+                </span>
+              </button>
+              <div className="fileselect-tools">
+                {selectedFile && view === 'edit' && (
+                  <button
+                    className="done-btn"
+                    onClick={() => setView('preview')}
+                    title="編集を終えてプレビューに戻る"
+                  >
+                    <IconEye size={16} /> 完了
+                  </button>
+                )}
+                <Menu trigger={<IconDots size={18} />} label="ファイルの操作">
+                  {selectedFile && (
+                    <button
+                      className="menu-item"
+                      onClick={() => setView('edit')}
+                    >
+                      <IconEdit size={16} /> 編集する
+                    </button>
+                  )}
+                  <button className="menu-item" onClick={createFile}>
+                    <IconPlus size={16} /> ファイルを追加
+                  </button>
+                  <button
+                    className="menu-item"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <IconFilePlus size={16} /> .mdを開く
+                  </button>
+                  {selectedFile && (
+                    <button className="menu-item" onClick={exportFile}>
+                      <IconDownload size={16} /> .mdで保存
+                    </button>
+                  )}
+                  {selectedFile && (
+                    <button
+                      className="menu-item danger"
+                      onClick={() => trashFile(selectedFile.id)}
+                    >
+                      <IconTrash size={16} /> ファイルを削除
+                    </button>
+                  )}
+                </Menu>
               </div>
-              <div className="filebar-scroll">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".md,text/markdown,text/plain"
+                style={{ display: 'none' }}
+                onChange={importFile}
+              />
+            </div>
+
+            {fileListOpen && (
+              <div className="filelist">
                 {activeFiles.map((f) => (
                   <button
                     key={f.id}
-                    className={`filetab${
+                    className={`filerow${
                       f.id === selectedFileId ? ' active' : ''
                     }`}
                     onClick={() => {
                       setSelectedFileId(f.id);
-                      setView('edit');
+                      setFileListOpen(false);
                     }}
-                    title={f.name}
                   >
-                    📄 {f.name || '(無題)'}
+                    <IconFile size={15} />
+                    <span>{f.name || '(無題)'}</span>
                   </button>
                 ))}
+                <div className="filelist-actions">
+                  <button className="filelist-add" onClick={createFile}>
+                    <IconPlus size={15} /> ファイル
+                  </button>
+                  <button
+                    className="filelist-add"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <IconFilePlus size={15} /> .mdを開く
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {selectedFile ? (
               <>
-                {/* ファイル名 ＋ 編集/プレビュー ＋ 書き出し/削除 */}
-                <div className="fileactions">
-                  <input
-                    className="filename-input"
-                    value={selectedFile.name}
-                    onChange={(e) => updateFile({ name: e.target.value })}
-                    placeholder="ファイル名"
-                  />
-                  <div className="tabs">
-                    <button
-                      className={`tab${view === 'edit' ? ' active' : ''}`}
-                      onClick={() => setView('edit')}
-                    >
-                      編集
-                    </button>
-                    <button
-                      className={`tab${view === 'preview' ? ' active' : ''}`}
-                      onClick={() => setView('preview')}
-                    >
-                      プレビュー
-                    </button>
-                  </div>
-                  <button className="icon-btn" onClick={exportFile}>
-                    .mdで保存
-                  </button>
-                  <button
-                    className="icon-btn danger"
-                    onClick={() => trashFile(selectedFile.id)}
-                    title="ファイルをゴミ箱へ"
-                  >
-                    ファイル削除
-                  </button>
-                </div>
-
                 <div className="content">
                   {view === 'edit' ? (
-                    <textarea
-                      className="editor"
-                      value={selectedFile.body}
-                      onChange={(e) => updateFile({ body: e.target.value })}
-                      placeholder="Markdown で書く..."
-                      spellCheck={false}
-                    />
+                    <div className="editwrap">
+                      <input
+                        className="filename-input"
+                        value={selectedFile.name}
+                        onChange={(e) => updateFile({ name: e.target.value })}
+                        placeholder="ファイル名"
+                      />
+                      <textarea
+                        className="editor"
+                        value={selectedFile.body}
+                        onChange={(e) => updateFile({ body: e.target.value })}
+                        placeholder="Markdown で書く..."
+                        spellCheck={false}
+                      />
+                    </div>
                   ) : (
                     <div className="md">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -657,7 +807,9 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <div className="empty">「＋ ファイル」でファイルを追加しよう</div>
+              <div className="empty">
+                「…」→「ファイルを追加」でファイルを作ろう
+              </div>
             )}
           </>
         ) : (
@@ -695,11 +847,13 @@ function TrashPanel({
     <>
       <div className="toolbar">
         <button className="back-btn" onClick={onBack} aria-label="一覧へ戻る">
-          ← 一覧
+          <IconArrowLeft size={18} />
         </button>
-        <h2 className="trash-title">🗑 ゴミ箱</h2>
+        <h2 className="trash-title">
+          <IconTrash size={18} /> ゴミ箱
+        </h2>
         <button className="icon-btn" onClick={onClose}>
-          閉じる
+          <IconClose size={16} /> 閉じる
         </button>
       </div>
       <div className="content">
@@ -717,7 +871,9 @@ function TrashPanel({
                 {trashedProjects.map((p) => (
                   <div key={p.id} className="trash-row">
                     <div className="trash-info">
-                      <span className="trash-name">📁 {p.title || '(無題)'}</span>
+                      <span className="trash-name">
+                        <IconFolder size={15} /> {p.title || '(無題)'}
+                      </span>
                       <span className="trash-sub">
                         {p.files.length}ファイル ・ 削除{' '}
                         {p.deletedAt ? formatDate(p.deletedAt) : ''}
@@ -728,13 +884,13 @@ function TrashPanel({
                         className="icon-btn"
                         onClick={() => onRestoreProject(p.id)}
                       >
-                        復元
+                        <IconRestore size={16} /> 復元
                       </button>
                       <button
                         className="icon-btn danger"
                         onClick={() => onPurgeProject(p.id)}
                       >
-                        完全削除
+                        <IconTrash size={16} /> 完全削除
                       </button>
                     </div>
                   </div>
@@ -748,7 +904,9 @@ function TrashPanel({
                 {trashedFiles.map(({ project, file }) => (
                   <div key={file.id} className="trash-row">
                     <div className="trash-info">
-                      <span className="trash-name">📄 {file.name || '(無題)'}</span>
+                      <span className="trash-name">
+                        <IconFile size={15} /> {file.name || '(無題)'}
+                      </span>
                       <span className="trash-sub">
                         {project.title} ・ 削除{' '}
                         {file.deletedAt ? formatDate(file.deletedAt) : ''}
@@ -759,13 +917,13 @@ function TrashPanel({
                         className="icon-btn"
                         onClick={() => onRestoreFile(project.id, file.id)}
                       >
-                        復元
+                        <IconRestore size={16} /> 復元
                       </button>
                       <button
                         className="icon-btn danger"
                         onClick={() => onPurgeFile(project.id, file.id)}
                       >
-                        完全削除
+                        <IconTrash size={16} /> 完全削除
                       </button>
                     </div>
                   </div>

@@ -79,6 +79,10 @@ button {
   color: white;
   font-weight: 700;
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: filter 0.15s;
 }
 .new-btn:hover {
@@ -175,10 +179,11 @@ button {
   font-weight: 600;
   margin: 0 0 8px;
   line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+}
+.focus-star {
+  color: #e8b923;
+  vertical-align: -2px;
+  margin-right: 4px;
 }
 .card-next {
   font-size: 12px;
@@ -219,6 +224,10 @@ button {
   color: var(--muted);
   font-weight: 600;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: border-color 0.12s, color 0.12s;
 }
 .trash-btn:hover {
@@ -246,6 +255,10 @@ button {
   color: var(--muted);
   font-weight: 600;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: border-color 0.12s, color 0.12s;
 }
 .sync-btn:hover {
@@ -282,34 +295,52 @@ button {
 }
 .back-btn {
   display: none;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   background: var(--panel-2);
   color: var(--text);
   border-radius: 9px;
-  padding: 7px 12px;
+  padding: 8px;
   font-size: 14px;
   font-weight: 600;
 }
+/* 注力トグル：星アイコンだけ（文字なし） */
 .focus-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   background: var(--panel-2);
   color: var(--muted);
   border-radius: 9px;
-  padding: 7px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
+  padding: 7px;
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 .focus-btn:hover {
   border-color: #e8b923;
-  color: var(--text);
+  color: #e8b923;
 }
 .focus-btn.on {
   background: #fdeec2;
   border-color: #e8b923;
-  color: #9a7a00;
+  color: #e8b923;
+}
+/* ステータス：タップで循環する色チップ（selectを廃止） */
+.status-chip {
+  flex: 0 0 auto;
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 14px;
+  white-space: nowrap;
+  transition: filter 0.12s;
+}
+.status-chip:hover {
+  filter: brightness(1.06);
 }
 .title-input {
   flex: 1;
@@ -342,6 +373,9 @@ button {
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: border-color 0.12s, background 0.12s;
 }
 .icon-btn:hover {
@@ -366,6 +400,9 @@ button {
 }
 .nextbar-label {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 700;
   color: #9a7a00;
@@ -386,8 +423,8 @@ button {
   border-color: #e8b923;
 }
 
-/* ===== ファイルタブ（プロジェクト内の複数MD） ===== */
-.filebar {
+/* ===== ファイル選択（折りたたみ縦リスト） ===== */
+.fileselect {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -395,60 +432,240 @@ button {
   border-bottom: 1px solid var(--border);
   background: var(--panel-2);
 }
-.filebar-fixed {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  padding-right: 8px;
-  border-right: 1px solid var(--border);
-}
-.filebar-scroll {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.fileselect-head {
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
-}
-.filetab {
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--border);
   background: var(--panel);
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 6px 13px;
-  font-size: 13px;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
   font-weight: 600;
+  text-align: left;
+}
+.fileselect-head:hover {
+  border-color: var(--accent);
+}
+.fileselect-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
-.filetab:hover {
-  border-color: var(--accent);
+.fileselect-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
-.filetab.active {
+.fileselect-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.fileselect-caret.open {
+  transform: rotate(180deg);
+}
+.fileselect-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--accent);
   background: var(--accent);
-  border-color: var(--accent);
   color: #fff;
+  border-radius: 9px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: filter 0.12s;
 }
-.filetab.add {
+.done-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* 開いたときの縦リスト */
+.filelist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.filerow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.filerow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filerow:hover {
+  border-color: var(--accent);
+}
+.filerow.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--accent);
-  border-style: dashed;
 }
-.filetab.add:hover {
+.filelist-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.filelist-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px dashed var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.filelist-add:hover {
   background: var(--accent-soft);
 }
 
-.fileactions {
+/* ===== 目標（北極星＋原点） ===== */
+.goalbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.goal-field {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 18px 0;
-  flex-wrap: wrap;
+}
+.goal-label {
+  flex: 0 0 74px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.goal-label.north {
+  color: #b8860b;
+}
+.goal-label.origin {
+  color: #3a9d5d;
+}
+.goal-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+}
+.goal-input:focus {
+  border-color: var(--accent);
+}
+
+/* ===== 「…」ドロップダウンメニュー ===== */
+.menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+.menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 7px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.menu-trigger:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 190px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(40, 38, 34, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.menu-item:hover {
+  background: var(--panel-2);
+}
+.menu-item.danger {
+  color: #d64545;
+}
+.menu-item.danger:hover {
+  background: #fdecec;
+}
+
+.editwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
 }
 .filename-input {
-  flex: 1;
-  min-width: 120px;
+  flex: 0 0 auto;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -462,24 +679,6 @@ button {
   border-color: var(--accent);
 }
 
-.tabs {
-  display: flex;
-  gap: 4px;
-}
-.tab {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 9px 9px 0 0;
-}
-.tab.active {
-  color: var(--text);
-  background: var(--panel);
-}
-
 .content {
   flex: 1;
   min-height: 0;
@@ -489,6 +688,7 @@ button {
 
 .editor {
   width: 100%;
+  flex: 1;
   height: 100%;
   min-height: 300px;
   resize: none;
@@ -589,6 +789,9 @@ button {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 .trash-note {
   color: var(--muted);
@@ -625,9 +828,10 @@ button {
 .trash-name {
   font-size: 14px;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 .trash-sub {
   font-size: 12px;

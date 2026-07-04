@@ -38,6 +38,8 @@ export function migrate(raw: any): Project | null {
       ...(typeof raw.nextAction === 'string'
         ? { nextAction: raw.nextAction }
         : {}),
+      ...(typeof raw.goal === 'string' ? { goal: raw.goal } : {}),
+      ...(typeof raw.origin === 'string' ? { origin: raw.origin } : {}),
     };
   }
 
