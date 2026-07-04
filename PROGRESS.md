@@ -112,10 +112,17 @@ Vercel + スマホ（PWA）対応を見据えた構成。
 ### 調査で分かったこと
 - 同期は今も一度も成功していない（`git fetch`で新規コミットなし、`data/kiroku-data.json`も無し）
 - Basic認証は本番で作動中＝`BASIC_AUTH_USER/PASS`はVercelに正しく届いている
-- → 残る容疑は GitHub API 側（トークンの対象リポジトリ設定・権限・OWNER/REPOの綴り）
-- **重要な仕様の罠**：Fine-grained PATが対象リポジトリに届かない場合、GitHubは404を返す。
-  旧コードは404を「ファイルがまだ無い」と同一視していたので、**読み込みは成功に見えて
-  書き込みだけ黙って失敗**する（＝今回の症状と完全一致する最有力容疑）
+- **★原因確定（診断APIで判明）**：Vercelに `GITHUB_OWNER` と `GITHUB_REPO` が
+  **未設定**だった（`GITHUB_TOKEN`だけ設定済み）。行き先不明でconfigがnull→同期を諦めていた。
+  ```
+  "GITHUB_TOKEN": true, "GITHUB_OWNER": false, "GITHUB_REPO": false
+  ```
+- 対処：owner/repoは秘密でない固定値なので**コードに既定値**(`gyaruweijing-tech`/`kiroku`)を
+  持たせ、実質必要な設定を`GITHUB_TOKEN`だけに削減（設定漏れ事故の再発防止）。commit 3070518
+- **重要な仕様の罠（今後のため記録）**：Fine-grained PATが対象リポジトリに届かない場合、
+  GitHubは404を返す。旧コードは404を「ファイルがまだ無い」と同一視していたので、読み込みは
+  成功に見えて書き込みだけ黙って失敗しうる。→ 診断API `?check=1` はリポジトリ本体への
+  アクセスも別途確認してこれを見分ける
 
 ### 入れた対策
 - [x] **診断API**：`/api/sync?check=1` → env設定の有無（値は出さない）＋リポジトリ疎通＋
