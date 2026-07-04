@@ -32,6 +32,7 @@ import {
   IconEye,
   IconFile,
   IconFilePlus,
+  IconFlag,
   IconFlame,
   IconFolder,
   IconPlus,
@@ -122,6 +123,37 @@ function Menu({
         </div>
       )}
     </div>
+  );
+}
+
+// 中身に合わせて縦に伸びるテキスト欄（1行入力だと長文が切れて見えないので）
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      className={className}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={1}
+    />
   );
 }
 
@@ -691,24 +723,24 @@ export default function Home() {
               </Menu>
             </div>
 
-            {/* 目標：北極星（一言ゴール）＋原点（なぜ始めたか） */}
+            {/* 目標：狙い（目指す先・未来）＋原点（なぜ始めた・過去） */}
             <div className="goalbar">
               <label className="goal-field">
-                <span className="goal-label north">
-                  <IconStar size={14} /> 北極星
+                <span className="goal-label aim">
+                  <IconFlag size={14} /> 狙い
                 </span>
-                <input
+                <AutoTextarea
                   className="goal-input"
                   value={selected.goal ?? ''}
                   onChange={(e) => updateProject({ goal: e.target.value })}
-                  placeholder="一言ゴール（例：中島聡さんのようなメルマガを自分に届ける）"
+                  placeholder="目指す先（例：中島聡さんのようなメルマガを自分に届ける）"
                 />
               </label>
               <label className="goal-field">
                 <span className="goal-label origin">
                   <IconSprout size={14} /> 原点
                 </span>
-                <input
+                <AutoTextarea
                   className="goal-input"
                   value={selected.origin ?? ''}
                   onChange={(e) => updateProject({ origin: e.target.value })}

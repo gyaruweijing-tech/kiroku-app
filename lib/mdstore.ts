@@ -41,7 +41,7 @@ export function serializeProjects(projects: Project[]): string {
     out.push(`## ${p.title || '(無題)'}${p.deletedAt ? '  🗑ゴミ箱' : ''}`);
     const bits: string[] = [p.status];
     if (p.focused) bits.push('⭐注力中');
-    if (p.goal) bits.push(`北極星: ${p.goal}`);
+    if (p.goal) bits.push(`狙い: ${p.goal}`);
     if (p.nextAction) bits.push(`次の一手: ${p.nextAction}`);
     out.push(`> ${bits.join(' ・ ')}`);
     if (p.origin) out.push(`> 原点: ${p.origin}`);

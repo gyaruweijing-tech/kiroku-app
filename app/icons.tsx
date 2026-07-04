@@ -178,6 +178,16 @@ export function IconFolder({ size = 18, className, style }: Props) {
   );
 }
 
+// 狙い＝目指す先（旗）
+export function IconFlag({ size = 18, className, style }: Props) {
+  return (
+    <svg {...svg(size, className, style)}>
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  );
+}
+
 // 連続日数（炎）
 export function IconFlame({ size = 18, className, style }: Props) {
   return (

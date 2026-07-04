@@ -566,11 +566,10 @@ button {
 }
 .goal-field {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
 }
 .goal-label {
-  flex: 0 0 74px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -578,20 +577,24 @@ button {
   font-weight: 700;
   white-space: nowrap;
 }
-.goal-label.north {
+.goal-label.aim {
   color: #b8860b;
 }
 .goal-label.origin {
   color: #3a9d5d;
 }
 .goal-input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
+  display: block;
+  resize: none;
+  overflow: hidden; /* 高さはJSで中身に合わせる。折り返して全文表示 */
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--text);
+  font-family: inherit;
   font-size: 13px;
+  line-height: 1.55;
   padding: 8px 12px;
   outline: none;
 }
