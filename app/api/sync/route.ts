@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseProjects, serializeProjects } from '@/lib/mdstore';
 
-// GitHubのリポジトリ内の1ファイル（JSON）をDB代わりに読み書きするAPI。
+// GitHubのリポジトリ内のファイルをDB代わりに読み書きするAPI。
 // 秘密のトークンはここ（サーバー側）でしか使わない。
+//
+// 保存形式：**人が読める Markdown 1枚（content/kiroku.md）** が正。
+//   - 構造データはコメント内JSON、ファイル本文はフェンス内の生Markdown（GitHubで直接編集可）
+//   - 旧 data/kiroku-data.json は「移行前の安全スナップショット兼フォールバック」として残す。
+//     content/kiroku.md がまだ無い環境では旧JSONを読む（＝いきなり空にならない）。
 //
 // 失敗したとき原因が分かるように：
 // - エラーにはGitHubのステータスコード＋対処ヒントを必ず含める
@@ -21,7 +27,8 @@ function config() {
     token,
     owner,
     repo,
-    path: process.env.GITHUB_DATA_PATH || 'data/kiroku-data.json',
+    mdPath: process.env.GITHUB_MD_PATH || 'content/kiroku.md', // 正データ
+    jsonPath: process.env.GITHUB_DATA_PATH || 'data/kiroku-data.json', // 旧・フォールバック
     branch: process.env.GITHUB_BRANCH || 'main',
   };
 }
@@ -51,9 +58,12 @@ function hint(status: number): string {
   }
 }
 
-async function readFile(cfg: NonNullable<ReturnType<typeof config>>) {
+async function readFile(
+  cfg: NonNullable<ReturnType<typeof config>>,
+  path: string
+) {
   const res = await fetch(
-    `${API}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}?ref=${cfg.branch}`,
+    `${API}/repos/${cfg.owner}/${cfg.repo}/contents/${path}?ref=${cfg.branch}`,
     { headers: ghHeaders(cfg.token), cache: 'no-store' }
   );
   if (res.status === 404) {
@@ -93,9 +103,9 @@ async function runCheck() {
     headers: ghHeaders(cfg.token),
     cache: 'no-store',
   });
-  // 2) データファイルがあるか
+  // 2) データファイル（正＝Markdown）があるか
   const fileRes = await fetch(
-    `${API}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}?ref=${cfg.branch}`,
+    `${API}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.mdPath}?ref=${cfg.branch}`,
     { headers: ghHeaders(cfg.token), cache: 'no-store' }
   );
 
@@ -118,7 +128,7 @@ async function runCheck() {
     env,
     repoAccess: repoRes.status,
     dataFile: fileStatus === 404 ? '未作成' : fileRes.ok ? 'あり' : `エラー ${fileStatus}`,
-    target: `${cfg.owner}/${cfg.repo}/${cfg.path} (${cfg.branch})`,
+    target: `${cfg.owner}/${cfg.repo}/${cfg.mdPath} (${cfg.branch})`,
     diagnosis,
   };
 }
@@ -145,8 +155,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { content } = await readFile(cfg);
-    return NextResponse.json({ projects: content ? JSON.parse(content) : null });
+    // 正データ = content/kiroku.md（Markdown）
+    const md = await readFile(cfg, cfg.mdPath);
+    if (md.content) {
+      return NextResponse.json({ projects: parseProjects(md.content) });
+    }
+    // まだ無ければ旧JSONにフォールバック（移行直後や初回）
+    const json = await readFile(cfg, cfg.jsonPath);
+    return NextResponse.json({
+      projects: json.content ? JSON.parse(json.content) : null,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'unknown error' },
@@ -170,17 +188,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { sha } = await readFile(cfg);
-    const res = await fetch(`${API}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`, {
-      method: 'PUT',
-      headers: ghHeaders(cfg.token),
-      body: JSON.stringify({
-        message: `sync: ${new Date().toISOString()}`,
-        content: Buffer.from(JSON.stringify(body.projects, null, 2), 'utf-8').toString('base64'),
-        branch: cfg.branch,
-        ...(sha ? { sha } : {}),
-      }),
-    });
+    // content/kiroku.md（正データ）を書き込む
+    const { sha } = await readFile(cfg, cfg.mdPath);
+    const md = serializeProjects(body.projects);
+    const res = await fetch(
+      `${API}/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.mdPath}`,
+      {
+        method: 'PUT',
+        headers: ghHeaders(cfg.token),
+        body: JSON.stringify({
+          message: `sync: ${new Date().toISOString()}`,
+          content: Buffer.from(md, 'utf-8').toString('base64'),
+          branch: cfg.branch,
+          ...(sha ? { sha } : {}),
+        }),
+      }
+    );
     if (!res.ok) {
       throw new Error(`GitHub書き込み失敗: ${res.status}（${hint(res.status)}）`);
     }

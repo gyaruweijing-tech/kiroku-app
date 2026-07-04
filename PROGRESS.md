@@ -182,11 +182,27 @@ Vercel + スマホ（PWA）対応を見据えた構成。
 - [x] 検証：`tsc --noEmit`・`npm run build` 通過
 - 設計判断メモ：git履歴をそのままスタンプラリーにする案は、自動同期コミットのメッセージが無意味（`sync: <時刻>`）なので不採用。**アプリ内の明示ログが本命**。git履歴表示は生Markdown化（下記）の後のボーナス
 
-## 🔜 次の大きな山：生Markdown化（GitHubネイティブ設計）
-本人と合意済みの方向。1つのJSON塊 → `content/<プロジェクト>/*.md`（メタ情報はfrontmatter）へ。
-- 狙い：①スマホのGitHubからも人間が読める・直せる ②Claudeは普段のファイル編集がそのまま反映ルートになる ③衝突の被害がファイル単位に縮む ④PROGRESS.mdとアプリ内進捗の分裂解消
-- sync APIをファイル単位に改修（コミットはTrees APIでまとめる想定）。既存JSONからの移行スクリプトが必要
-- **せっかく開通した同期を壊さないよう、別セッションでじっくりやる**
+## ✅ 改良（2026-07-05 その3）生Markdown化（GitHubで人が読める・直せる保存形式へ）
+狙い：JSON塊 → 人が読めるMarkdownへ。GitHub上で本文を直接読める・編集できるようにする（「AIと私が手を取り合う」の土台）。
+**同期を壊さないため「1ファイルのまま・Contents APIのまま・往復テスト済み」の安全設計を選択**（フォルダ分割＝Git Data APIは将来）。
+
+- [x] `lib/mdstore.ts`：`serializeProjects`/`parseProjects`。保存形式 = **`content/kiroku.md` 1枚**
+  - 構造データ（id/日時/status/focused/nextAction/goal/origin/log/ファイル一覧）は `<!-- k:p {JSON} -->` コメントに丸ごと（完全再現）
+  - **ファイル本文は `<!-- k:body -->`〜`<!-- k:/body -->` の間に生Markdown** → GitHubで直接編集でき、それがアプリに反映される
+  - 見出し(##/###)や「あゆみ」リストは“読む用の飾り”で parse では無視（＝二重管理なし。正はコメントJSONとフェンス本文だけ）
+  - 本文が `##見出し` を含んでも壊れないよう、境界はHTMLコメントのフェンスで判定
+- [x] `app/api/sync/route.ts`：正データを `content/kiroku.md` に変更。GETはmdをparse、**無ければ旧JSONにフォールバック**。POSTはserializeして書き込み
+  - 旧 `data/kiroku-data.json` は「移行前スナップショット兼フォールバック」として残置（いきなり空にならない保険）
+  - env `GITHUB_MD_PATH`（既定 content/kiroku.md）を追加。診断API・target表示もmd側に更新
+- [x] **実データで往復テスト合格**：8プロジェクト/14ファイル本文すべて保持、`parse(serialize)`意味的一致、`serialize`安定（無駄push無し）、`content/kiroku.md`→parse==ライブデータ
+- [x] 移行：`content/kiroku.md` を現データから生成してコミット（デプロイ直後からGETが即読める）
+- [x] `tsc --noEmit`／`npm run build` 通過
+- クライアント(app/page.tsx・localStorage・merge)は**一切変更なし**（APIとの通信は今まで通り `{projects}` のJSON）
+
+### 🔜 生Markdownの次段（やるなら）
+- [ ] フォルダ分割 `content/<プロジェクト>/*.md`（本当のファイル単位。Git Data APIで複数ファイルを1コミット）
+- [ ] goal/origin/nextActionもGitHubで編集可能に（今は本文のみ編集反映。メタはアプリから）
+- [ ] git履歴を「あゆみ」に取り込む表示
 
 ## 🔜 改良メモ（その後）
 - [ ] PWA用 PNG アイコン（192/512）を用意（今は SVG 1枚。iOS の home追加で要る場合あり）
