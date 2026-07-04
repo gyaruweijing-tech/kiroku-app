@@ -178,6 +178,24 @@ export function IconFolder({ size = 18, className, style }: Props) {
   );
 }
 
+// 連続日数（炎）
+export function IconFlame({ size = 18, className, style }: Props) {
+  return (
+    <svg {...svg(size, className, style)}>
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    </svg>
+  );
+}
+
+// スタンプを押す（チェック）
+export function IconCheck({ size = 18, className, style }: Props) {
+  return (
+    <svg {...svg(size, className, style)}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 // 原点（芽・二葉）
 export function IconSprout({ size = 18, className, style }: Props) {
   return (

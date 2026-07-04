@@ -1,4 +1,4 @@
-import { MdFile, Project } from './types';
+import { LogEntry, MdFile, Project } from './types';
 
 // ============================================================
 //  データ層（今は localStorage 実装）
@@ -40,6 +40,7 @@ export function migrate(raw: any): Project | null {
         : {}),
       ...(typeof raw.goal === 'string' ? { goal: raw.goal } : {}),
       ...(typeof raw.origin === 'string' ? { origin: raw.origin } : {}),
+      ...(Array.isArray(raw.log) ? { log: raw.log as LogEntry[] } : {}),
     };
   }
 

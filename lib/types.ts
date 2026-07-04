@@ -15,6 +15,15 @@ export interface MdFile {
   deletedAt?: number; // ゴミ箱に入れた時刻。未設定＝通常表示
 }
 
+// あゆみ1件＝スタンプ。「やったこと」を1行で積み上げる（進んでる感の土台）。
+// by が 'claude' のものは Claude Code が書き込んだ記録（＝AIと人の共同ログ）。
+export interface LogEntry {
+  id: string;
+  at: number; // 押した時刻
+  note: string; // やったこと1行
+  by?: 'claude'; // 省略＝本人
+}
+
 // プロジェクト＝フォルダ。中に MdFile を複数持てる。
 export interface Project {
   id: string;
@@ -28,4 +37,5 @@ export interface Project {
   nextAction?: string; // 次の一手（次にやること1行）
   goal?: string; // 北極星＝このプロジェクトの一言ゴール（モチベの方向）
   origin?: string; // 原点＝なぜ始めたか（折れた時に効く物語）
+  log?: LogEntry[]; // あゆみ＝やったことスタンプの積み上げ
 }

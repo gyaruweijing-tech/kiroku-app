@@ -9,7 +9,7 @@ import {
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MdFile, Project, Status, STATUSES } from '@/lib/types';
+import { LogEntry, MdFile, Project, Status, STATUSES } from '@/lib/types';
 import {
   loadProjects,
   saveProjects,
@@ -22,6 +22,7 @@ import {
 import { seedProjects } from '@/lib/seed';
 import {
   IconArrowLeft,
+  IconCheck,
   IconChevronDown,
   IconCloud,
   IconClose,
@@ -31,6 +32,7 @@ import {
   IconEye,
   IconFile,
   IconFilePlus,
+  IconFlame,
   IconFolder,
   IconPlus,
   IconRestore,
@@ -52,6 +54,27 @@ function formatDate(ts: number): string {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(
     d.getHours()
   )}:${p(d.getMinutes())}`;
+}
+
+// ===== あゆみ（スタンプ）の計算 =====
+// 「その日やったか」で数えるための日付キー（端末のローカル時間基準）
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+// 連続日数：今日（まだ押してなければ昨日）から、途切れるまで遡って数える
+function calcStreak(log: LogEntry[] | undefined): number {
+  if (!log?.length) return 0;
+  const days = new Set(log.map((e) => dayKey(e.at)));
+  const d = new Date();
+  if (!days.has(dayKey(d.getTime()))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (days.has(dayKey(d.getTime()))) {
+    n++;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
 }
 
 // ===== 「…」ドロップダウンメニュー（外側クリック/Escで閉じる） =====
@@ -108,6 +131,8 @@ export default function Home() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [view, setView] = useState<'edit' | 'preview'>('preview'); // 読む→書くの順。既定はプレビュー
   const [fileListOpen, setFileListOpen] = useState(false); // ファイルの折りたたみ縦リスト
+  const [ayumiOpen, setAyumiOpen] = useState(false); // あゆみ（スタンプ）の開閉
+  const [logInput, setLogInput] = useState(''); // スタンプの入力欄
   const [showDetail, setShowDetail] = useState(false); // スマホ用
   const [showTrash, setShowTrash] = useState(false); // ゴミ箱画面
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
@@ -219,6 +244,16 @@ export default function Home() {
     [activeFiles, selectedFileId]
   );
 
+  // あゆみ：新しい順のログ＋「進んでる感」の数字（連続・開始からの日数・着手日数）
+  const ayumi = useMemo(() => {
+    if (!selected) return null;
+    const log = [...(selected.log ?? [])].sort((a, b) => b.at - a.at);
+    const daysWorked = new Set(log.map((e) => dayKey(e.at))).size;
+    const sinceStart =
+      Math.floor((Date.now() - selected.createdAt) / 86400000) + 1;
+    return { log, daysWorked, sinceStart, streak: calcStreak(selected.log) };
+  }, [selected]);
+
   // ゴミ箱の中身
   const trashedProjects = useMemo(
     () =>
@@ -261,6 +296,22 @@ export default function Home() {
     if (!selected) return;
     const i = STATUSES.indexOf(selected.status);
     updateProject({ status: STATUSES[(i + 1) % STATUSES.length] });
+  }
+
+  // あゆみにスタンプを1つ押す（やったこと1行を積む）
+  function stampLog() {
+    const note = logInput.trim();
+    if (!note || !selected) return;
+    const t = now();
+    const entry: LogEntry = { id: newId(), at: t, note };
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === selected.id
+          ? { ...p, updatedAt: t, log: [...(p.log ?? []), entry] }
+          : p
+      )
+    );
+    setLogInput('');
   }
 
   // 「いま注力」を切り替え。常に1つだけ true（再度押すと解除）
@@ -524,6 +575,7 @@ export default function Home() {
         <ul className="list">
           {sorted.map((p) => {
             const fileCount = p.files.filter((f) => !f.deletedAt).length;
+            const streak = calcStreak(p.log);
             return (
               <li
                 key={p.id}
@@ -550,6 +602,11 @@ export default function Home() {
                   >
                     {p.status}
                   </span>
+                  {streak >= 2 && (
+                    <span className="card-streak">
+                      <IconFlame size={12} /> {streak}
+                    </span>
+                  )}
                   <span className="card-date">
                     {fileCount}ファイル ・ {formatDate(p.updatedAt)}
                   </span>
@@ -671,6 +728,71 @@ export default function Home() {
                 onChange={(e) => updateProject({ nextAction: e.target.value })}
                 placeholder="次にやること1つを書く（例：API設計を決める）"
               />
+            </div>
+
+            {/* あゆみ：やったことスタンプ。積み上げ＝進んでる感（Claudeも書き込む共同ログ） */}
+            <div className="ayumibar">
+              <button
+                className="ayumi-head"
+                onClick={() => setAyumiOpen((o) => !o)}
+                aria-expanded={ayumiOpen}
+              >
+                <span className="ayumi-label">あゆみ</span>
+                <span className="ayumi-stats">
+                  {ayumi && ayumi.streak >= 2 && (
+                    <span className="ayumi-streak">
+                      <IconFlame size={14} /> {ayumi.streak}日連続
+                    </span>
+                  )}
+                  <span>開始{ayumi?.sinceStart}日目</span>
+                  <span>着手{ayumi?.daysWorked}日</span>
+                  <span>スタンプ{ayumi?.log.length ?? 0}個</span>
+                </span>
+                <span className={`fileselect-caret${ayumiOpen ? ' open' : ''}`}>
+                  <IconChevronDown size={16} />
+                </span>
+              </button>
+              {ayumiOpen && (
+                <div className="ayumi-panel">
+                  <div className="ayumi-form">
+                    <input
+                      className="ayumi-input"
+                      value={logInput}
+                      onChange={(e) => setLogInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        // 日本語変換中のEnterでは押さない
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing)
+                          stampLog();
+                      }}
+                      placeholder="やったことを1行（例：同期を開通させた）"
+                    />
+                    <button
+                      className="stamp-btn"
+                      onClick={stampLog}
+                      disabled={!logInput.trim()}
+                    >
+                      <IconCheck size={15} /> スタンプ
+                    </button>
+                  </div>
+                  <div className="ayumi-list">
+                    {ayumi?.log.length ? (
+                      ayumi.log.map((e) => (
+                        <div key={e.id} className="ayumi-item">
+                          <span className="ayumi-date">{formatDate(e.at)}</span>
+                          <span className="ayumi-note">{e.note}</span>
+                          {e.by === 'claude' && (
+                            <span className="ayumi-by">Claude</span>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="ayumi-empty">
+                        まだスタンプがないよ。今日やったことを1行押してみよう
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ファイル選択：普段は選択中の1つ＋「…」だけ。▼で全ファイルを縦に開く */}

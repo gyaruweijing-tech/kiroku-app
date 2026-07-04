@@ -599,6 +599,140 @@ button {
   border-color: var(--accent);
 }
 
+/* ===== あゆみ（やったことスタンプの積み上げ） ===== */
+.ayumibar {
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.ayumi-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+.ayumi-head:hover {
+  color: var(--text);
+}
+.ayumi-label {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13px;
+}
+.ayumi-stats {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ayumi-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #e2622b;
+  font-weight: 700;
+}
+.ayumi-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 18px 12px;
+}
+.ayumi-form {
+  display: flex;
+  gap: 8px;
+}
+.ayumi-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+}
+.ayumi-input:focus {
+  border-color: var(--accent);
+}
+.stamp-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: filter 0.12s;
+}
+.stamp-btn:hover {
+  filter: brightness(1.08);
+}
+.stamp-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ayumi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.ayumi-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+.ayumi-date {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ayumi-note {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+.ayumi-by {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.ayumi-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.card-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2622b;
+  white-space: nowrap;
+}
+
 /* ===== 「…」ドロップダウンメニュー ===== */
 .menu {
   position: relative;
