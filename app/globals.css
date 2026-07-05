@@ -998,3 +998,231 @@ button {
     display: inline-flex;
   }
 }
+
+/* ===== XP・レベル（モチベ設計 2026-07-05） ===== */
+.ayumi-level {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 2px 9px;
+  letter-spacing: 0.02em;
+}
+.ayumi-weekmult {
+  font-weight: 800;
+  color: #b8860b;
+}
+.card-level {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.ayumi-xp {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  color: #b8860b;
+}
+
+/* XPバー（次のLvまで） */
+.xpbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.xpbar {
+  flex: 1;
+  height: 8px;
+  background: var(--panel-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.xpbar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a595ff);
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.xpbar-text {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* XPポップ：スタンプ直後に画面中央へ「+112!」をドーンと */
+.xp-pop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 60;
+  animation: xp-pop-life 2s ease-out forwards;
+}
+.xp-pop-num {
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 4px 24px rgba(109, 93, 252, 0.35);
+  animation: xp-pop-num 0.5s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.xp-pop.rare .xp-pop-num {
+  color: #e2622b;
+  text-shadow: 0 4px 24px rgba(226, 98, 43, 0.4);
+}
+.xp-pop.jackpot .xp-pop-num {
+  font-size: 120px;
+  color: #d4a017;
+  text-shadow: 0 0 12px rgba(212, 160, 23, 0.55), 0 6px 32px rgba(212, 160, 23, 0.45);
+}
+.xp-pop-jackpot {
+  font-size: 26px;
+  font-weight: 900;
+  color: #d4a017;
+  letter-spacing: 0.15em;
+  animation: xp-jackpot-shake 0.5s ease-in-out;
+}
+.xp-pop-sub {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 14px;
+  box-shadow: var(--shadow);
+}
+.xp-pop-sub:empty {
+  display: none;
+}
+@keyframes xp-pop-num {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes xp-jackpot-shake {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-4deg) scale(1.1); }
+  75% { transform: rotate(4deg) scale(1.1); }
+}
+@keyframes xp-pop-life {
+  0% { opacity: 1; }
+  75% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-24px); }
+}
+
+/* Lvアップ：ご褒美画面で狙い(北極星)と原点を再注入 */
+.levelup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 20px;
+  animation: levelup-fade 0.3s ease-out;
+}
+.levelup-card {
+  background: var(--panel);
+  border-radius: var(--radius);
+  border: 2px solid #d4a017;
+  box-shadow: 0 12px 48px rgba(40, 38, 34, 0.25), 0 0 0 6px rgba(212, 160, 23, 0.15);
+  padding: 28px 26px 22px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  animation: levelup-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.levelup-head {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: #d4a017;
+}
+.levelup-num {
+  margin: 6px 0 2px;
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+}
+.levelup-proj {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.levelup-goal,
+.levelup-origin {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.levelup-goal {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.levelup-goal svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--accent);
+}
+.levelup-origin {
+  background: rgba(39, 174, 96, 0.1);
+  color: var(--text);
+}
+.levelup-origin svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: #27ae60;
+}
+.levelup-btn {
+  margin-top: 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 10px 34px;
+  cursor: pointer;
+}
+.levelup-btn:hover {
+  filter: brightness(1.08);
+}
+@keyframes levelup-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes levelup-in {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (max-width: 760px) {
+  .xp-pop-num { font-size: 72px; }
+  .xp-pop.jackpot .xp-pop-num { font-size: 88px; }
+}

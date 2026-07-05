@@ -22,6 +22,7 @@ export interface LogEntry {
   at: number; // 押した時刻
   note: string; // やったこと1行
   by?: 'claude'; // 省略＝本人
+  xp?: number; // このスタンプで得た経験値（押した瞬間にランダム決定・以後不変）。省略＝旧スタンプ
 }
 
 // プロジェクト＝フォルダ。中に MdFile を複数持てる。

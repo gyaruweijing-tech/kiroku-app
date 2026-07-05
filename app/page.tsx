@@ -21,6 +21,17 @@ import {
 } from '@/lib/storage';
 import { seedProjects } from '@/lib/seed';
 import {
+  XpRoll,
+  WEEK_GOAL_DAYS,
+  calcWeekStreak,
+  dayKey,
+  daysThisWeek,
+  levelInfo,
+  rollXp,
+  totalXp,
+  weekMultiplier,
+} from '@/lib/xp';
+import {
   IconArrowLeft,
   IconCheck,
   IconChevronDown,
@@ -58,11 +69,7 @@ function formatDate(ts: number): string {
 }
 
 // ===== あゆみ（スタンプ）の計算 =====
-// 「その日やったか」で数えるための日付キー（端末のローカル時間基準）
-function dayKey(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
+// 日付キー dayKey や XP計算は lib/xp.ts に集約（node単体でテストできる純関数群）
 
 // 連続日数：今日（まだ押してなければ昨日）から、途切れるまで遡って数える
 function calcStreak(log: LogEntry[] | undefined): number {
@@ -165,6 +172,14 @@ export default function Home() {
   const [fileListOpen, setFileListOpen] = useState(false); // ファイルの折りたたみ縦リスト
   const [ayumiOpen, setAyumiOpen] = useState(false); // あゆみ（スタンプ）の開閉
   const [logInput, setLogInput] = useState(''); // スタンプの入力欄
+  // XP演出：スタンプ直後の「+112!」ポップと、Lvアップ時の狙い/原点の再表示
+  const [xpPop, setXpPop] = useState<(XpRoll & { key: number }) | null>(null);
+  const [levelUp, setLevelUp] = useState<{
+    to: number;
+    title: string;
+    goal?: string;
+    origin?: string;
+  } | null>(null);
   const [showDetail, setShowDetail] = useState(false); // スマホ用
   const [showTrash, setShowTrash] = useState(false); // ゴミ箱画面
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
@@ -283,8 +298,25 @@ export default function Home() {
     const daysWorked = new Set(log.map((e) => dayKey(e.at))).size;
     const sinceStart =
       Math.floor((Date.now() - selected.createdAt) / 86400000) + 1;
-    return { log, daysWorked, sinceStart, streak: calcStreak(selected.log) };
+    const total = totalXp(selected.log);
+    return {
+      log,
+      daysWorked,
+      sinceStart,
+      streak: calcStreak(selected.log),
+      total,
+      lv: levelInfo(total),
+      weekDays: daysThisWeek(selected.log),
+      weekStreak: calcWeekStreak(selected.log),
+    };
   }, [selected]);
+
+  // XPポップは少し見せて自動で消す
+  useEffect(() => {
+    if (!xpPop) return;
+    const t = setTimeout(() => setXpPop(null), 2000);
+    return () => clearTimeout(t);
+  }, [xpPop]);
 
   // ゴミ箱の中身
   const trashedProjects = useMemo(
@@ -330,12 +362,15 @@ export default function Home() {
     updateProject({ status: STATUSES[(i + 1) % STATUSES.length] });
   }
 
-  // あゆみにスタンプを1つ押す（やったこと1行を積む）
+  // あゆみにスタンプを1つ押す（やったこと1行を積む）＋XPガチャを回す
   function stampLog() {
     const note = logInput.trim();
     if (!note || !selected) return;
     const t = now();
-    const entry: LogEntry = { id: newId(), at: t, note };
+    const roll = rollXp(selected.log); // 押した瞬間に確定（以後変わらない）
+    const entry: LogEntry = { id: newId(), at: t, note, xp: roll.xp };
+    const before = levelInfo(totalXp(selected.log)).level;
+    const after = levelInfo(totalXp([...(selected.log ?? []), entry])).level;
     setProjects((prev) =>
       prev.map((p) =>
         p.id === selected.id
@@ -344,6 +379,15 @@ export default function Home() {
       )
     );
     setLogInput('');
+    setXpPop({ ...roll, key: t });
+    if (after > before) {
+      // XPポップを見せてから、狙い(北極星)と原点を再注入する演出
+      const { title, goal, origin } = selected;
+      setTimeout(
+        () => setLevelUp({ to: after, title, goal, origin }),
+        1500
+      );
+    }
   }
 
   // 「いま注力」を切り替え。常に1つだけ true（再度押すと解除）
@@ -608,6 +652,7 @@ export default function Home() {
           {sorted.map((p) => {
             const fileCount = p.files.filter((f) => !f.deletedAt).length;
             const streak = calcStreak(p.log);
+            const level = levelInfo(totalXp(p.log)).level;
             return (
               <li
                 key={p.id}
@@ -634,6 +679,9 @@ export default function Home() {
                   >
                     {p.status}
                   </span>
+                  {level >= 2 && (
+                    <span className="card-level">Lv{level}</span>
+                  )}
                   {streak >= 2 && (
                     <span className="card-streak">
                       <IconFlame size={12} /> {streak}
@@ -771,14 +819,30 @@ export default function Home() {
               >
                 <span className="ayumi-label">あゆみ</span>
                 <span className="ayumi-stats">
+                  {ayumi && (
+                    <span className="ayumi-level" title={`XP ${ayumi.total}`}>
+                      Lv{ayumi.lv.level}
+                    </span>
+                  )}
+                  {ayumi && ayumi.weekStreak >= 1 && (
+                    <span
+                      className="ayumi-weekmult"
+                      title={`週${WEEK_GOAL_DAYS}日を${ayumi.weekStreak}週連続達成中。獲得XPが増える`}
+                    >
+                      ×{weekMultiplier(ayumi.weekStreak).toFixed(2)}
+                    </span>
+                  )}
+                  <span
+                    title={`今週${WEEK_GOAL_DAYS}日着手すると倍率が育つ（毎日じゃなくていい）`}
+                  >
+                    今週{ayumi?.weekDays}/{WEEK_GOAL_DAYS}日
+                  </span>
                   {ayumi && ayumi.streak >= 2 && (
                     <span className="ayumi-streak">
                       <IconFlame size={14} /> {ayumi.streak}日連続
                     </span>
                   )}
-                  <span>開始{ayumi?.sinceStart}日目</span>
                   <span>着手{ayumi?.daysWorked}日</span>
-                  <span>スタンプ{ayumi?.log.length ?? 0}個</span>
                 </span>
                 <span className={`fileselect-caret${ayumiOpen ? ' open' : ''}`}>
                   <IconChevronDown size={16} />
@@ -786,6 +850,25 @@ export default function Home() {
               </button>
               {ayumiOpen && (
                 <div className="ayumi-panel">
+                  {ayumi && (
+                    <div className="xpbar-row">
+                      <div className="xpbar">
+                        <div
+                          className="xpbar-fill"
+                          style={{
+                            width: `${Math.min(
+                              (ayumi.lv.cur / ayumi.lv.need) * 100,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="xpbar-text">
+                        あと{ayumi.lv.need - ayumi.lv.cur}XPでLv
+                        {ayumi.lv.level + 1}
+                      </span>
+                    </div>
+                  )}
                   <div className="ayumi-form">
                     <input
                       className="ayumi-input"
@@ -812,6 +895,9 @@ export default function Home() {
                         <div key={e.id} className="ayumi-item">
                           <span className="ayumi-date">{formatDate(e.at)}</span>
                           <span className="ayumi-note">{e.note}</span>
+                          {typeof e.xp === 'number' && (
+                            <span className="ayumi-xp">+{e.xp}</span>
+                          )}
                           {e.by === 'claude' && (
                             <span className="ayumi-by">Claude</span>
                           )}
@@ -972,6 +1058,51 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* XPポップ：スタンプ直後に「+112!」をドーンと出す（自動で消える） */}
+      {xpPop && (
+        <div key={xpPop.key} className={`xp-pop ${xpPop.tier}`} aria-hidden>
+          {xpPop.tier === 'jackpot' && (
+            <div className="xp-pop-jackpot">大当たり！</div>
+          )}
+          <div className="xp-pop-num">+{xpPop.xp}</div>
+          <div className="xp-pop-sub">
+            {xpPop.firstToday && <span>今日の初着手 ×2</span>}
+            {xpPop.mult > 1 && (
+              <span>週連続 ×{xpPop.mult.toFixed(2)}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Lvアップ：ご褒美の瞬間に狙い(北極星)と原点を再注入する */}
+      {levelUp && (
+        <div className="levelup-overlay" onClick={() => setLevelUp(null)}>
+          <div className="levelup-card" onClick={(e) => e.stopPropagation()}>
+            <p className="levelup-head">LEVEL UP</p>
+            <p className="levelup-num">Lv {levelUp.to}</p>
+            <p className="levelup-proj">{levelUp.title}</p>
+            {levelUp.goal?.trim() && (
+              <p className="levelup-goal">
+                <IconFlag size={15} /> {levelUp.goal}
+              </p>
+            )}
+            {levelUp.origin?.trim() && (
+              <p className="levelup-origin">
+                <IconSprout size={15} /> {levelUp.origin}
+              </p>
+            )}
+            {!levelUp.goal?.trim() && !levelUp.origin?.trim() && (
+              <p className="levelup-origin">
+                狙いと原点を書いておくと、Lvアップのたびにここで思い出せるよ
+              </p>
+            )}
+            <button className="levelup-btn" onClick={() => setLevelUp(null)}>
+              刻んだ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,8 @@ export function serializeProjects(projects: Project[]): string {
 // Markdown 文字列をプロジェクト配列に戻す
 export function parseProjects(md: string): Project[] {
   const projects: Project[] = [];
-  const lines = md.split('\n');
+  // CRLF対策：Windowsのcheckoutや外部エディタ経由で \r が混ざっても壊れないよう正規化
+  const lines = md.split('\n').map((l) => l.replace(/\r$/, ''));
   let cur: Project | null = null;
   let fileIdx = 0; // 現プロジェクト内で、次に本文を割り当てるファイルの番号
 
