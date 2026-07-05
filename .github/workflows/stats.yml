@@ -1,0 +1,52 @@
+# 開発の軌跡（data/stats.json）を自動更新するAction。
+# - 6時間おき＋コード変更のpush時＋手動実行
+# - 生成コミットは "stats:" で始まる（scripts/stats.mjs がpush数から除外する）
+# - pathsに data/ と content/ を入れていないので、記録の同期(sync:)や
+#   このAction自身のコミットでは再発火しない（＝無限ループしない・Actions分を食わない）
+name: stats
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'scripts/**'
+      - 'middleware.ts'
+      - 'package.json'
+      - 'next.config.mjs'
+
+concurrency:
+  group: stats
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 全履歴が必要（blameとpush数の計算に使う）
+
+      - name: statsを計算
+        run: node scripts/stats.mjs
+
+      - name: 変化があればコミット
+        run: |
+          if git diff --quiet -- data/stats.json; then
+            echo "変化なし"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/stats.json
+          git commit -m "stats: 開発の軌跡を更新"
+          # 実行中にアプリのsyncコミットが入っていても大丈夫なようにrebaseしてからpush
+          git pull --rebase origin main
+          git push origin main

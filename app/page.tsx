@@ -20,6 +20,7 @@ import {
   now,
 } from '@/lib/storage';
 import { seedProjects } from '@/lib/seed';
+import { Stats, fetchStats } from '@/lib/stats';
 import {
   XpRoll,
   WEEK_GOAL_DAYS,
@@ -52,6 +53,7 @@ import {
   IconStar,
   IconTarget,
   IconTrash,
+  IconZap,
 } from './icons';
 
 const STATUS_COLORS: Record<Status, string> = {
@@ -182,6 +184,9 @@ export default function Home() {
   } | null>(null);
   const [showDetail, setShowDetail] = useState(false); // スマホ用
   const [showTrash, setShowTrash] = useState(false); // ゴミ箱画面
+  // 開発の軌跡（push数・生存コード）。GitHub Actionが生成したものを読むだけの飾り
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [showStats, setShowStats] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'title'>(
     'updated'
@@ -198,6 +203,10 @@ export default function Home() {
   // 同じidは新しい方、片方にしか無いものは必ず残す（＝端末のデータが消えない）。
   useEffect(() => {
     let cancelled = false;
+    // 開発の軌跡は本体のロードを待たせず並行で取る（失敗しても無視＝ただの飾り）
+    fetchStats().then((s) => {
+      if (!cancelled && s) setStats(s);
+    });
     (async () => {
       const local = loadProjects();
       const remote = await pullRemote();
@@ -310,6 +319,12 @@ export default function Home() {
       weekStreak: calcWeekStreak(selected.log),
     };
   }, [selected]);
+
+  // 選択中プロジェクトのpush数（記録が動いた回数。溜まる一方の数字）
+  const projPushes = useMemo(() => {
+    if (!selected || !stats) return 0;
+    return stats.projects.find((x) => x.id === selected.id)?.pushes ?? 0;
+  }, [selected, stats]);
 
   // XPポップは少し見せて自動で消す
   useEffect(() => {
@@ -709,6 +724,22 @@ export default function Home() {
             <IconCloud size={16} /> {syncing ? '同期中…' : '今すぐ同期'}
           </button>
           {syncMsg && <p className="sync-msg">{syncMsg}</p>}
+          {/* 開発の軌跡への入口はこの1行だけ（ごちゃつき防止） */}
+          {stats && (
+            <button
+              className="stats-line"
+              onClick={() => setShowStats(true)}
+              title="開発の軌跡を見る"
+            >
+              <IconZap size={13} filled />
+              <strong>{stats.pushes.total}</strong> push
+              {stats.code.mature?.rate != null && (
+                <span className="stats-line-rate">
+                  生存率{Math.round(stats.code.mature.rate * 100)}%
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </aside>
 
@@ -843,6 +874,14 @@ export default function Home() {
                     </span>
                   )}
                   <span>着手{ayumi?.daysWorked}日</span>
+                  {projPushes > 0 && (
+                    <span
+                      className="ayumi-push"
+                      title="このプロジェクトの記録が動いたpush回数（溜まる一方）"
+                    >
+                      <IconZap size={12} /> {projPushes}
+                    </span>
+                  )}
                 </span>
                 <span className={`fileselect-caret${ayumiOpen ? ' open' : ''}`}>
                   <IconChevronDown size={16} />
@@ -1075,6 +1114,15 @@ export default function Home() {
         </div>
       )}
 
+      {/* 開発の軌跡：push数（溜まる運動量）と生存コード率（品質の鏡） */}
+      {showStats && stats && (
+        <StatsOverlay
+          stats={stats}
+          projects={projects}
+          onClose={() => setShowStats(false)}
+        />
+      )}
+
       {/* Lvアップ：ご褒美の瞬間に狙い(北極星)と原点を再注入する */}
       {levelUp && (
         <div className="levelup-overlay" onClick={() => setLevelUp(null)}>
@@ -1103,6 +1151,121 @@ export default function Home() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== 開発の軌跡パネル =====
+// push数＝溜まる一方の運動量（XPと同じ思想）。
+// 生存コード率＝書いて7日生き残った行の割合。品質の「鏡」なので目標にしない。
+function StatsOverlay({
+  stats,
+  projects,
+  onClose,
+}: {
+  stats: Stats;
+  projects: Project[];
+  onClose: () => void;
+}) {
+  // 生きているプロジェクトだけ表示（昔のテスト用idや削除済みは省く）
+  const alive = new Map(
+    projects.filter((p) => !p.deletedAt).map((p) => [p.id, p.title])
+  );
+  const rows = stats.projects.filter((r) => alive.has(r.id));
+  const max = rows[0]?.pushes || 1;
+  const mature = stats.code.mature;
+  const recent = stats.code.commits.slice(0, 12);
+  return (
+    <div className="stats-overlay" onClick={onClose}>
+      <div className="stats-card" onClick={(e) => e.stopPropagation()}>
+        <div className="stats-head">
+          <h2>
+            <IconZap size={18} filled /> 開発の軌跡
+          </h2>
+          <button className="icon-btn" onClick={onClose}>
+            <IconClose size={16} /> 閉じる
+          </button>
+        </div>
+
+        <div className="stats-tiles">
+          <div className="stats-tile">
+            <span className="stats-num">{stats.pushes.total}</span>
+            <span className="stats-cap">総push</span>
+          </div>
+          <div className="stats-tile">
+            <span className="stats-num">{stats.pushes.record}</span>
+            <span className="stats-cap">記録push</span>
+          </div>
+          <div className="stats-tile">
+            <span className="stats-num">{stats.pushes.dev}</span>
+            <span className="stats-cap">開発push</span>
+          </div>
+          <div className="stats-tile">
+            <span className="stats-num">
+              {stats.code.liveLines.toLocaleString()}
+            </span>
+            <span className="stats-cap">生きている行</span>
+          </div>
+        </div>
+
+        <section className="stats-section">
+          <h3>
+            プロジェクト別push
+            <span className="stats-hint">記録が動いた回数。減らない</span>
+          </h3>
+          {rows.map((r) => (
+            <div key={r.id} className="stats-row">
+              <span className="stats-row-title">
+                {alive.get(r.id) || r.title}
+              </span>
+              <span className="stats-bar">
+                <span
+                  className="stats-bar-fill"
+                  style={{ width: `${(r.pushes / max) * 100}%` }}
+                />
+              </span>
+              <span className="stats-row-num">{r.pushes}</span>
+            </div>
+          ))}
+        </section>
+
+        <section className="stats-section">
+          <h3>
+            生存コード率
+            <span className="stats-hint">
+              書いて{stats.code.matureDays}日生き残った行の割合。品質の鏡（目標にしない）
+            </span>
+          </h3>
+          {mature?.rate != null ? (
+            <p className="stats-rate">
+              <strong>{Math.round(mature.rate * 100)}%</strong>
+              <span>
+                {mature.added.toLocaleString()}行書いて{' '}
+                {mature.surviving.toLocaleString()}行が今も生きている
+              </span>
+            </p>
+          ) : (
+            <p className="stats-rate">
+              まだ熟成中（書いて{stats.code.matureDays}日経ったコミットから採点）
+            </p>
+          )}
+          <div className="stats-commits">
+            {recent.map((c) => (
+              <div key={c.sha} className="stats-commit">
+                <span className="stats-commit-date">{c.date.slice(5)}</span>
+                <span className="stats-commit-subj">{c.subject}</span>
+                <span
+                  className={`stats-commit-rate${c.mature ? '' : ' young'}`}
+                >
+                  {c.mature
+                    ? `${Math.round((c.surviving / c.added) * 100)}%`
+                    : '熟成中'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
