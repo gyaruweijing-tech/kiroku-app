@@ -125,23 +125,30 @@ function projectStateAt(sha) {
 }
 
 function countProjectPushes() {
-  const shas = git('log', '--reverse', '--format=%H', REF, '--', ...DATA_PATHS)
+  const entries = git('log', '--reverse', '--format=%H;%ct', REF, '--', ...DATA_PATHS)
     .trim()
     .split('\n')
-    .filter(Boolean);
-  const pushes = new Map(); // id -> count
+    .filter(Boolean)
+    .map((l) => {
+      const [sha, ct] = l.split(';');
+      return { sha, at: Number(ct) * 1000 };
+    });
+  const pushLog = new Map(); // id -> pushしたコミット時刻(ms)の配列（昇順）
   const titles = new Map(); // id -> 最後に見たタイトル
   let prev = new Map();
-  for (const sha of shas) {
+  for (const { sha, at } of entries) {
     const state = projectStateAt(sha);
     if (!state) continue;
     for (const [id, { hash, title }] of state) {
-      if (prev.get(id)?.hash !== hash) pushes.set(id, (pushes.get(id) ?? 0) + 1);
+      if (prev.get(id)?.hash !== hash) {
+        if (!pushLog.has(id)) pushLog.set(id, []);
+        pushLog.get(id).push(at);
+      }
       if (title) titles.set(id, title);
     }
     prev = state;
   }
-  return { pushes, titles };
+  return { pushLog, titles };
 }
 
 // ---- 生存コード分析 ----
@@ -208,13 +215,21 @@ function main() {
     pushCounts[k]++;
   }
 
-  const { pushes, titles } = countProjectPushes();
+  const { pushLog, titles } = countProjectPushes();
   // コード開発コミットは「このアプリ」プロジェクトのpushにも加算
-  if (pushCounts.dev > 0) {
-    pushes.set(APP_PROJECT_ID, (pushes.get(APP_PROJECT_ID) ?? 0) + pushCounts.dev);
+  const devTimes = commits.filter((c) => kind(c.subject) === 'dev').map((c) => c.at);
+  if (devTimes.length) {
+    if (!pushLog.has(APP_PROJECT_ID)) pushLog.set(APP_PROJECT_ID, []);
+    pushLog.get(APP_PROJECT_ID).push(...devTimes);
+    pushLog.get(APP_PROJECT_ID).sort((a, b) => a - b);
   }
-  const projects = [...pushes.entries()]
-    .map(([id, n]) => ({ id, title: titles.get(id) ?? '', pushes: n }))
+  const projects = [...pushLog.entries()]
+    .map(([id, log]) => ({
+      id,
+      title: titles.get(id) ?? '',
+      pushes: log.length,
+      pushLog: log, // いつpushしたか（ms、昇順）。プロジェクト個別の詳細表示に使う
+    }))
     .sort((a, b) => b.pushes - a.pushes);
 
   const files = codeFiles();

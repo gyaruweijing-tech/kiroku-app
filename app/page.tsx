@@ -70,6 +70,16 @@ function formatDate(ts: number): string {
   )}:${p(d.getMinutes())}`;
 }
 
+// 「◯分前 / ◯時間前 / ◯日前」のゆるい相対表示（push履歴用）
+function agoLabel(ts: number): string {
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return 'たった今';
+  if (m < 60) return `${m}分前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}時間前`;
+  return `${Math.floor(h / 24)}日前`;
+}
+
 // ===== あゆみ（スタンプ）の計算 =====
 // 日付キー dayKey や XP計算は lib/xp.ts に集約（node単体でテストできる純関数群）
 
@@ -187,6 +197,9 @@ export default function Home() {
   // 開発の軌跡（push数・生存コード）。GitHub Actionが生成したものを読むだけの飾り
   const [stats, setStats] = useState<Stats | null>(null);
   const [showStats, setShowStats] = useState(false);
+  const [statsFocusId, setStatsFocusId] = useState<string | null>(null); // 開いた時に出すプロジェクト個別詳細
+  // 原点は普段は折りたたむ（狙いは常時表示。ごちゃつき防止）
+  const [originOpen, setOriginOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
   const [sortBy, setSortBy] = useState<'updated' | 'created' | 'title'>(
     'updated'
@@ -446,6 +459,7 @@ export default function Home() {
     setShowDetail(true);
     setShowTrash(false);
     setFileListOpen(false);
+    setOriginOpen(false); // 原点は折りたたみ状態から
     setView('preview'); // 開いたらまず読める
   }
 
@@ -728,7 +742,10 @@ export default function Home() {
           {stats && (
             <button
               className="stats-line"
-              onClick={() => setShowStats(true)}
+              onClick={() => {
+                setStatsFocusId(null); // ここからは全体ビュー
+                setShowStats(true);
+              }}
               title="開発の軌跡を見る"
             >
               <IconZap size={13} filled />
@@ -802,7 +819,7 @@ export default function Home() {
               </Menu>
             </div>
 
-            {/* 目標：狙い（目指す先・未来）＋原点（なぜ始めた・過去） */}
+            {/* 目標：狙い（常時表示）＋原点（普段は折りたたみ。ごちゃつき防止） */}
             <div className="goalbar">
               <label className="goal-field">
                 <span className="goal-label aim">
@@ -815,25 +832,39 @@ export default function Home() {
                   placeholder="目指す先（例：中島聡さんのようなメルマガを自分に届ける）"
                 />
               </label>
-              <label className="goal-field">
+              <button
+                className="origin-fold"
+                onClick={() => setOriginOpen((o) => !o)}
+                aria-expanded={originOpen}
+              >
                 <span className="goal-label origin">
                   <IconSprout size={14} /> 原点
                 </span>
+                {!originOpen && (
+                  <span className="origin-fold-preview">
+                    {selected.origin?.trim() || 'なぜ始めた？（タップで開く）'}
+                  </span>
+                )}
+                <span className={`fileselect-caret${originOpen ? ' open' : ''}`}>
+                  <IconChevronDown size={15} />
+                </span>
+              </button>
+              {originOpen && (
                 <AutoTextarea
                   className="goal-input"
                   value={selected.origin ?? ''}
                   onChange={(e) => updateProject({ origin: e.target.value })}
                   placeholder="なぜ始めた？（折れた時に効く物語）"
                 />
-              </label>
+              )}
             </div>
 
-            {/* 次の一手 */}
+            {/* 次の一手（複数行OK） */}
             <div className="nextbar">
               <span className="nextbar-label">
                 <IconTarget size={15} /> 次の一手
               </span>
-              <input
+              <AutoTextarea
                 className="nextbar-input"
                 value={selected.nextAction ?? ''}
                 onChange={(e) => updateProject({ nextAction: e.target.value })}
@@ -877,7 +908,22 @@ export default function Home() {
                   {projPushes > 0 && (
                     <span
                       className="ayumi-push"
-                      title="このプロジェクトの記録が動いたpush回数（溜まる一方）"
+                      role="button"
+                      tabIndex={0}
+                      title="このプロジェクトのpush履歴を見る"
+                      onClick={(e) => {
+                        e.stopPropagation(); // あゆみの開閉と分離
+                        setStatsFocusId(selected.id);
+                        setShowStats(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setStatsFocusId(selected.id);
+                          setShowStats(true);
+                        }
+                      }}
                     >
                       <IconZap size={12} /> {projPushes}
                     </span>
@@ -1119,6 +1165,7 @@ export default function Home() {
         <StatsOverlay
           stats={stats}
           projects={projects}
+          initialProjectId={statsFocusId}
           onClose={() => setShowStats(false)}
         />
       )}
@@ -1158,15 +1205,21 @@ export default function Home() {
 // ===== 開発の軌跡パネル =====
 // push数＝溜まる一方の運動量（XPと同じ思想）。
 // 生存コード率＝書いて7日生き残った行の割合。品質の「鏡」なので目標にしない。
+// 行タップ（またはあゆみの⚡）でプロジェクト個別のpush履歴にドリルダウンできる。
 function StatsOverlay({
   stats,
   projects,
+  initialProjectId,
   onClose,
 }: {
   stats: Stats;
   projects: Project[];
+  initialProjectId?: string | null;
   onClose: () => void;
 }) {
+  const [detailId, setDetailId] = useState<string | null>(
+    initialProjectId ?? null
+  );
   // 生きているプロジェクトだけ表示（昔のテスト用idや削除済みは省く）
   const alive = new Map(
     projects.filter((p) => !p.deletedAt).map((p) => [p.id, p.title])
@@ -1175,6 +1228,83 @@ function StatsOverlay({
   const max = rows[0]?.pushes || 1;
   const mature = stats.code.mature;
   const recent = stats.code.commits.slice(0, 12);
+
+  // ---- プロジェクト個別ビュー ----
+  if (detailId) {
+    const row = stats.projects.find((r) => r.id === detailId);
+    const title = alive.get(detailId) || row?.title || '(無題)';
+    const log = [...(row?.pushLog ?? [])].sort((a, b) => b - a); // 新しい順
+    // 今週（月曜はじまり）と今日のpush数
+    const day0 = new Date();
+    day0.setHours(0, 0, 0, 0);
+    const week0 = new Date(day0);
+    week0.setDate(week0.getDate() - ((week0.getDay() + 6) % 7));
+    const today = log.filter((t) => t >= day0.getTime()).length;
+    const week = log.filter((t) => t >= week0.getTime()).length;
+    const shown = log.slice(0, 30);
+    return (
+      <div className="stats-overlay" onClick={onClose}>
+        <div className="stats-card" onClick={(e) => e.stopPropagation()}>
+          <div className="stats-head">
+            <button
+              className="icon-btn"
+              onClick={() => setDetailId(null)}
+              aria-label="全体に戻る"
+            >
+              <IconArrowLeft size={16} /> 全体
+            </button>
+            <button className="icon-btn" onClick={onClose}>
+              <IconClose size={16} /> 閉じる
+            </button>
+          </div>
+          <h2 className="stats-detail-title">
+            <IconZap size={17} filled /> {title}
+          </h2>
+
+          <div className="stats-tiles">
+            <div className="stats-tile">
+              <span className="stats-num">{row?.pushes ?? 0}</span>
+              <span className="stats-cap">累計push</span>
+            </div>
+            <div className="stats-tile">
+              <span className="stats-num">{week}</span>
+              <span className="stats-cap">今週</span>
+            </div>
+            <div className="stats-tile">
+              <span className="stats-num">{today}</span>
+              <span className="stats-cap">今日</span>
+            </div>
+          </div>
+
+          <section className="stats-section">
+            <h3>
+              push履歴
+              <span className="stats-hint">
+                このプロジェクトの記録が変わったコミットの時刻
+              </span>
+            </h3>
+            <div className="stats-commits">
+              {shown.length ? (
+                shown.map((t, i) => (
+                  <div key={`${t}-${i}`} className="stats-commit">
+                    <span className="stats-hist-date">{formatDate(t)}</span>
+                    <span className="stats-hist-ago">{agoLabel(t)}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="stats-rate">まだ履歴がない（次の集計で反映）</p>
+              )}
+              {log.length > shown.length && (
+                <p className="stats-more">ほか {log.length - shown.length} 件</p>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- 全体ビュー ----
   return (
     <div className="stats-overlay" onClick={onClose}>
       <div className="stats-card" onClick={(e) => e.stopPropagation()}>
@@ -1211,10 +1341,14 @@ function StatsOverlay({
         <section className="stats-section">
           <h3>
             プロジェクト別push
-            <span className="stats-hint">記録が動いた回数。減らない</span>
+            <span className="stats-hint">タップで個別の履歴へ</span>
           </h3>
           {rows.map((r) => (
-            <div key={r.id} className="stats-row">
+            <button
+              key={r.id}
+              className="stats-row clickable"
+              onClick={() => setDetailId(r.id)}
+            >
               <span className="stats-row-title">
                 {alive.get(r.id) || r.title}
               </span>
@@ -1225,7 +1359,10 @@ function StatsOverlay({
                 />
               </span>
               <span className="stats-row-num">{r.pushes}</span>
-            </div>
+              <span className="stats-row-caret">
+                <IconChevronDown size={13} />
+              </span>
+            </button>
           ))}
         </section>
 

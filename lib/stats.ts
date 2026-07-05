@@ -27,7 +27,12 @@ export interface Stats {
     dev: number; // コード開発push
     record: number; // 記録の同期push（sync:）
   };
-  projects: { id: string; title: string; pushes: number }[];
+  projects: {
+    id: string;
+    title: string;
+    pushes: number;
+    pushLog?: number[]; // pushしたコミット時刻(ms・昇順)。個別詳細の表示に使う
+  }[];
   code: {
     liveLines: number; // 現在生きているコード行数
     matureDays: number;
