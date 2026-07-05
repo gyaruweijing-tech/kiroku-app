@@ -1428,3 +1428,91 @@ button {
   font-weight: 400;
   font-size: 11px;
 }
+
+/* ===== 原点の折りたたみ（狙いは常時表示、原点は普段しまう） ===== */
+.origin-fold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font-size: 13px;
+}
+.origin-fold-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.origin-fold .fileselect-caret {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+/* 次の一手を複数行対応（textarea化） */
+.nextbar {
+  align-items: flex-start;
+}
+.nextbar-label {
+  margin-top: 8px;
+}
+textarea.nextbar-input {
+  resize: none;
+  overflow: hidden; /* 高さはJSで中身に合わせる */
+  font-family: inherit;
+  line-height: 1.55;
+}
+
+/* ===== 開発の軌跡：プロジェクト個別ビュー ===== */
+.stats-row.clickable {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 5px 6px;
+  text-align: left;
+}
+.stats-row.clickable:hover {
+  background: var(--panel-2);
+}
+.stats-row-caret {
+  flex: 0 0 auto;
+  color: var(--muted);
+  display: inline-flex;
+  transform: rotate(-90deg); /* ▸ 右向き＝進める印 */
+}
+.stats-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 16.5px;
+  font-weight: 800;
+}
+.stats-detail-title svg {
+  color: var(--accent);
+}
+.stats-hist-date {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stats-hist-ago {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.stats-more {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
